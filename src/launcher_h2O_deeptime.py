@@ -93,4 +93,3 @@ if __name__=='__main__':
 
             # DEEPTIME ANALYSIS
             run_analysis(X_train, X_test, lag, label)
-            plot_compare_atoms

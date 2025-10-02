@@ -9,16 +9,16 @@ from tqdm import tqdm
 from deeptime_modules import run_analysis
 from pathlib import Path
 import os
+from random import shuffle
 data = '/Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/data/gete/ramp_up.pos_0.extxyz'
 data2 = '/Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/data/gete/ramp_down.pos_0.extxyz'
-data = '/Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/data/water-ice/traj_waterice.xyz'
 
 SOAP_cutoff = 6
 SOAP_max_angular = 5
 SOAP_max_radial = 6
 
-centers = [8] # center on Te
-neighbors  = [1,8]
+centers = [52] # center on Te
+neighbors  = [32,52]
 
 HYPER_PARAMETERS = {
     "cutoff": {
@@ -42,23 +42,22 @@ if __name__=='__main__':
     trj1, ids_atoms = read_trj(data)
     trj2, ids_atoms2 = read_trj(data2)
     trj = trj1 + trj2
-    
-    
-    #trj = trj[::2]
-    interval = 10
-    #trj = trj[::4][500:1000]
-    oxygen_atoms = [idx for idx, number in enumerate(trj[0].get_atomic_numbers()) if number==8] # only oxygen atoms
-    for interval in [1, 10, 100]:
-        dir = dir = f'results/GeTe/NEW/deeptime/single/interval{interval}'
+   
+    ids_atoms = [atom.index for atom in trj[0] if atom.number == centers[0]][:2]
+    shuffle(ids_atoms)
+    ids_atoms_train = ids_atoms[:20]
+    ids_atoms_test = ids_atoms[-1:]
+    for interval in [1, 10, 100, 1000]:
+        dir = dir = f'results/GeTe/NEW/deeptime/mean/interval{interval}'
         Path(dir).mkdir(parents=True, exist_ok=True)
-        for lag in tqdm([10, 25, 50], 'Processing lag times'):
+        for lag in tqdm([10, 25, 100], 'Processing lag times'):
             label = f'SOAP_deeptime_single_lag{lag}_water_interval{interval}_r6_maxang5_maxrad6'
             label = os.path.join(dir, label)
-            ids_atoms_train = [atom.index for atom in trj[0] if atom.number == centers[0]][:1]
-            X_train, samples = SOAP_mean(trj, interval, ids_atoms_train, HYPER_PARAMETERS, centers, neighbors)[0] # first center type TxD
-            
+
+            X_train, samples = SOAP_mean(trj, interval, ids_atoms_train, HYPER_PARAMETERS, centers, neighbors) # first center type TxD
+
             """X_train2 = SOAP_mean(trj, 1000, ids_atoms_train, HYPER_PARAMETERS, centers, neighbors)[0] # first center type TxD
-            
+
             from sklearn.decomposition import PCA
             pca1 = PCA(n_components=4)
             pca1.fit(X_train)
@@ -84,8 +83,7 @@ if __name__=='__main__':
                 ax.plot(X_train2__[:,i], color='C1', alpha=0.5, linestyle='--')
             plt.show()"""
             # single atom and no TA for test data
-            ids_atoms_test = [atom.index for atom in trj[0] if atom.number == centers[0]][-1:]
-            X_test, smaples = SOAP_mean(trj, 1, ids_atoms_test, HYPER_PARAMETERS, centers, neighbors)[0] # first center type TxD
+            X_test, smaples = SOAP_mean(trj, 1, ids_atoms_test, HYPER_PARAMETERS, centers, neighbors) # first center type TxD
 
             # DEEPTIME ANALYSIS
             run_analysis(X_train[0], X_test[0], lag, label)
