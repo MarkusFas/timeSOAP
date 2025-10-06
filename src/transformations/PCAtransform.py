@@ -49,7 +49,7 @@ class PCA_obj:
         # reorder so that largest EV is first
         self.mu = mu
         self.eigvals = self.eigvals[::-1]
-        self.eigvecs = self.eigvecs[::-1]
+        self.eigvecs = self.eigvecs[:,::-1]
     
     def compute_eigen_NEW(self, mu, COV_1, COV_2):
         eps = 1e-10
@@ -63,12 +63,12 @@ class PCA_obj:
         # reorder so that largest EV is first
         self.mu = mu
         self.eigvals = self.eigvals[::-1]
-        self.eigvecs = self.eigvecs[::-1]
+        self.eigvecs = self.eigvecs[:,::-1]
 
     def trafo(self, X):
         # X could be matrix or array, for both:
-        Y = self.eigvecs[:self.n_components] @ (X - self.mu).T 
-        return Y.T
+        Y = np.einsum('ij,jk->ik',(X - self.mu), self.eigvecs[:,:self.n_components])
+        return Y
     
     def save(self):
         torch.save(torch.from_numpy(self.eigvecs.copy()),f'{self.run_label}_pca_eigvecs_timeavg.pt')

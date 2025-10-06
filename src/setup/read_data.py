@@ -46,7 +46,7 @@ def tamper_water_trj(traj):
     print(f"Found {len(ice_oxygens)} ice molecules and {len(liquid_oxygens)} liquid molecules.")
 
     # Randomly pick 20 from each
-    ice_sel = random.sample(ice_oxygens, 20)
+    ice_sel = random.sample(ids_atoms, 20)
     liquid_sel = random.sample(liquid_oxygens, 20)
 
     print("Selected ice oxygens:", ice_sel)

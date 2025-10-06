@@ -49,9 +49,9 @@ if __name__=='__main__':
     shuffle(oxygen_atoms)
     train_atoms = oxygen_atoms[:20] # take only 20 random atoms
     test_atoms = oxygen_atoms[30:50] # take only 20 random atoms
-    dir = f'results/water_ice/NEW/SOAP_PCA/temporalCOV_PCA'
-    dir = f'results/water_ice/NEW/SOAP_PCA/temporalGEV'
-    dir = f'results/water_ice/NEW/SOAP_PCA/fullCOV_PCA'
+    dir = f'results/icewater/NEW/SOAP_PCA/temporalCOV_PCA'
+    dir = f'results/icewater/NEW/SOAP_PCA/temporalGEV'
+    dir = f'results/icewater/NEW/SOAP_PCA/fullCOV_PCA'
     Path(dir).mkdir(parents=True, exist_ok=True)
     X_values = []
     test_intervals = [1, 25, 100, 250, 1000]

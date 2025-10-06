@@ -193,7 +193,7 @@ def SOAP_full(traj, interval, ids_atoms, HYPER_PARAMETERS, centers, neighbors):
                 ntimesteps[atom_type_idx] += 1
 
         buffer[:,fidx%maxlag,:] = new_soap_values
-    return [soaps[:np.where(soaps==0)[0][0],:] for soaps in inframe], soap_block.properties # trim zeros from the back 
+    return [soaps[:ntimesteps[atom_type_idx]] for atom_type_idx, soaps in enumerate(inframe)], soap_block.properties # trim zeros from the back 
 
 
 @profile
@@ -243,7 +243,7 @@ def SOAP_mean(traj, interval, ids_atoms, HYPER_PARAMETERS, centers, neighbors):
 
 
 @profile
-def SOAP_COV_repair(traj, interval, ids_atoms, HYPER_PARAMETERS, centers, neighbors):
+def SOAP_COV_atomsprops(traj, interval, ids_atoms, HYPER_PARAMETERS, centers, neighbors):
     # select which atoms to compute the SOAP for (here all)
     calculator = SoapPowerSpectrum(**HYPER_PARAMETERS)
 
@@ -327,6 +327,179 @@ def SOAP_COV_repair(traj, interval, ids_atoms, HYPER_PARAMETERS, centers, neighb
 
 
 @profile
+def SOAP_COV_repair(traj, interval, ids_atoms, HYPER_PARAMETERS, centers, neighbors):
+    # select which atoms to compute the SOAP for (here all)
+    calculator = SoapPowerSpectrum(**HYPER_PARAMETERS)
+
+    sel = Labels(
+        names=["center_type", "neighbor_1_type", "neighbor_2_type"],
+        values=torch.tensor([[i,j,k] for i in centers for j in neighbors for k in neighbors if j <=
+            k], dtype=torch.int32),
+    )
+
+    atomsel = Labels(
+        names=["atom"],
+        values=torch.tensor(ids_atoms, dtype=torch.int64).unsqueeze(-1),
+    )
+
+    #test_ = eval_PETMAD(traj, atomsel)
+
+    systems = systems_to_torch(traj, dtype=torch.float64)
+    soap_block = eval_SOAP(systems[:1], calculator, sel, atomsel)
+    first_soap = soap_block.values.numpy()
+    #first_soap = eval_PETMAD(traj[:1], atomsel)
+    atomsel_element = [[idx for idx, label in enumerate(soap_block.samples.values.numpy()) if label[2] == atom_type] for atom_type in centers]
+    
+    maxlag = interval
+    buffer = np.zeros((first_soap.shape[0], maxlag, first_soap.shape[1]))
+    avgcov = np.zeros((len(atomsel_element), first_soap.shape[1], first_soap.shape[1],))
+    soapsum = np.zeros((len(atomsel_element),first_soap.shape[1],))
+    inframe_means = np.zeros((len(atomsel_element),first_soap.shape[1], first_soap.shape[1],))
+    inframe_sum = np.zeros((len(atomsel_element),first_soap.shape[1],))
+    #soapsum_lag = np.zeros((len(atomsel_element),first_soap.shape[1],))
+    nsmp = np.zeros(len(atomsel_element))
+    delta=np.zeros(maxlag)
+    delta[maxlag//2]=1
+    kernel=gaussian_filter(delta,sigma=(maxlag-1)//(2*3)) # cutoff at 3 sigma, leaves 0.1%
+    ntimesteps = np.zeros(len(atomsel_element))
+    #atomsel_element=[np.arange(atomsel.values.shape[0]) for _ in centers] #one entry for each SOAP center
+    # for the PET case
+    #atomsel_element=[[atom.index for atom in traj[0] if atom.number == atom_type] for atom_type in centers] #one entry for each SOAP center
+    
+    for fidx, system in tqdm(enumerate(systems), total=len(systems), desc="Computing SOAPs"):
+        #new_soap_values = eval_PETMAD([traj[fidx]], atomsel)
+        #idx = (fidx + maxlag//2)
+        new_soap_values = eval_SOAP([system], calculator, sel, atomsel).values.numpy()
+        if fidx >= maxlag:
+            #first = buffer[:,fidx%maxlag] # takes first/ oldest soap in buffer (maxlag timesteps ago)
+            roll_kernel = np.roll(kernel, fidx%maxlag)
+            # computes a contribution to the correlation function
+            # the buffer contains data from fidx-maxlag to fidx. add a forward ACF
+            avg_soap = np.einsum("j,ija->ia", roll_kernel, buffer) #smoothen
+            atomsel_idx = np.arange(atomsel.values.shape[0]) 
+            for atom_type_idx, atom_type in enumerate(atomsel_element):
+
+                inframe = avg_soap[atom_type].mean(axis=0)
+                inframe_sum[atom_type_idx] += inframe
+                #soapsum_lag[atom_type_idx] += avg_soap[atom_type].sum(axis=0)
+                # ge and te averaged covariance
+                # PCA avgcov[atom_type_idx] += np.einsum("ia,ib->ab", new_soap_values[atom_type], new_soap_values[atom_type]) #sum over all same atoms (have already summed over all times before)
+                avgcov[atom_type_idx] += np.einsum("ia,ib->ab", avg_soap[atom_type], avg_soap[atom_type]) 
+                nsmp[atom_type_idx] += len(atom_type)
+                ntimesteps[atom_type_idx] += 1
+
+        buffer[:,fidx%maxlag,:] = new_soap_values
+
+    avgcc = np.zeros((len(atomsel_element), new_soap_values.shape[1], new_soap_values.shape[1]))
+    avgtcov = np.zeros((len(atomsel_element), new_soap_values.shape[1], new_soap_values.shape[1]))
+    avgmean = np.zeros((len(atomsel_element), first_soap.shape[1],))
+    avgmean_lag = np.zeros((len(atomsel_element), first_soap.shape[1],))
+
+
+    # autocorrelation matrix - remove mean
+    for atom_type_idx, atom_type in enumerate(atomsel_element):
+        avgmean[atom_type_idx] = inframe_sum[atom_type_idx]/ntimesteps[atom_type_idx] #soapsum[atom_type_idx, :, None]/nsmp[atom_type_idx]
+        #avgmean_lag[atom_type_idx] = soapsum[atom_type_idx, :]/nsmp[atom_type_idx]
+        avgcc[atom_type_idx] = avgcov[atom_type_idx]/nsmp[atom_type_idx] - np.einsum('i,j->ij', avgmean[atom_type_idx], avgmean[atom_type_idx]) #soapsum[atom_type_idx, :, None]*soapsum[atom_type_idx, None, :]/(nsmp[atom_type_idx]**2)
+        # COV = 1/N ExxT - mumuT
+
+    #all_soap_values = eval_SOAP(systems, calculator, sel, atomsel).values.numpy()
+    #C_np = np.cov(all_soap_values, rowvar=False, bias=True)   # population covariance
+    #print(np.allclose(C_np, avgcc[0], atol=1e-8))
+    return avgmean, avgcc, atomsel_element
+
+
+@profile
+def SOAP_COV_directPCAtest(traj, interval, ids_atoms, HYPER_PARAMETERS, centers, neighbors):
+    # select which atoms to compute the SOAP for (here all)
+    calculator = SoapPowerSpectrum(**HYPER_PARAMETERS)
+
+    sel = Labels(
+        names=["center_type", "neighbor_1_type", "neighbor_2_type"],
+        values=torch.tensor([[i,j,k] for i in centers for j in neighbors for k in neighbors if j <=
+            k], dtype=torch.int32),
+    )
+
+    atomsel = Labels(
+        names=["atom"],
+        values=torch.tensor(ids_atoms, dtype=torch.int64).unsqueeze(-1),
+    )
+
+
+    systems = systems_to_torch(traj, dtype=torch.float64)
+    soap_block = eval_SOAP(systems[:1], calculator, sel, atomsel)
+    first_soap = soap_block.values.numpy()
+    #first_soap = eval_PETMAD(traj[:1], atomsel)
+    atomsel_element = [[idx for idx, label in enumerate(soap_block.samples.values.numpy()) if label[2] == atom_type] for atom_type in centers]
+    
+    maxlag = interval
+    buffer = np.zeros((first_soap.shape[0], maxlag, first_soap.shape[1]))
+    cov_t = np.zeros((len(atomsel_element), first_soap.shape[1], first_soap.shape[1],))
+    sum_mu_t = np.zeros((len(atomsel_element),first_soap.shape[1],))
+    scatter_mut = np.zeros((len(atomsel_element),first_soap.shape[1], first_soap.shape[1],))
+    #soapsum_lag = np.zeros((len(atomsel_element),first_soap.shape[1],))
+    nsmp = np.zeros(len(atomsel_element))
+    delta=np.zeros(maxlag)
+    delta[maxlag//2]=1
+    kernel=gaussian_filter(delta,sigma=(maxlag-1)//(2*3)) # cutoff at 3 sigma, leaves 0.1%
+    ntimesteps = np.zeros(len(atomsel_element), dtype=int)
+    #atomsel_element=[np.arange(atomsel.values.shape[0]) for _ in centers] #one entry for each SOAP center
+    # for the PET case
+    #atomsel_element=[[atom.index for atom in traj[0] if atom.number == atom_type] for atom_type in centers] #one entry for each SOAP center
+    inframe = np.zeros((len(atomsel_element), len(systems), first_soap.shape[1]))
+    for fidx, system in tqdm(enumerate(systems), total=len(systems), desc="Computing SOAPs"):
+        #new_soap_values = eval_PETMAD([traj[fidx]], atomsel)
+        #idx = (fidx + maxlag//2)
+        new_soap_values = eval_SOAP([system], calculator, sel, atomsel).values.numpy()
+        if fidx >= maxlag:
+            #first = buffer[:,fidx%maxlag] # takes first/ oldest soap in buffer (maxlag timesteps ago)
+            roll_kernel = np.roll(kernel, fidx%maxlag)
+            # computes a contribution to the correlation function
+            # the buffer contains data from fidx-maxlag to fidx. add a forward ACF
+            avg_soap = np.einsum("j,ija->ia", roll_kernel, buffer) #smoothen
+            atomsel_idx = np.arange(atomsel.values.shape[0]) 
+            for atom_type_idx, atom_type in enumerate(atomsel_element):
+                mu_t = avg_soap[atom_type].mean(axis=0)
+                scatter_mut[atom_type_idx] += np.einsum(
+                    "a,b->ab", 
+                    mu_t, 
+                    mu_t,
+                )  
+                
+                sum_mu_t[atom_type_idx] += mu_t #sum over all same atoms
+                inframe[atom_type_idx, ntimesteps[atom_type_idx]] = mu_t
+                cov_t[atom_type_idx] += np.einsum("ia,ib->ab", avg_soap[atom_type] - mu_t, avg_soap[atom_type] - mu_t)/len(atom_type) #sum over all same atoms (have already summed over all times before) 
+                nsmp[atom_type_idx] += len(atom_type)
+                ntimesteps[atom_type_idx] += 1
+
+        buffer[:,fidx%maxlag,:] = new_soap_values
+
+
+    mean_cov_t = np.zeros((len(atomsel_element), new_soap_values.shape[1], new_soap_values.shape[1]))
+    cov_mu_t = np.zeros((len(atomsel_element), new_soap_values.shape[1], new_soap_values.shape[1]))
+    mean_mu_t = np.zeros((len(atomsel_element), first_soap.shape[1],))
+
+    # autocorrelation matrix - remove mean
+    for atom_type_idx, atom_type in enumerate(atomsel_element):
+        
+        mean_cov_t[atom_type_idx] = cov_t[atom_type_idx]/ntimesteps[atom_type_idx]
+        # COV = 1/N ExxT - mumuT
+        mean_mu_t[atom_type_idx] = sum_mu_t[atom_type_idx]/ntimesteps[atom_type_idx]
+        # add temporal covariance
+        cov_mu_t[atom_type_idx] = scatter_mut[atom_type_idx]/ntimesteps[atom_type_idx] - np.einsum('i,j->ij', mean_mu_t[atom_type_idx], mean_mu_t[atom_type_idx])
+
+    #all_soap_values = eval_SOAP(systems, calculator, sel, atomsel).values.numpy()
+    #C_np = np.cov(all_soap_values, rowvar=False, bias=True)   # population covariance
+    #print(np.allclose(C_np, avgcc[0], atol=1e-8))
+
+
+    X_train = [soaps[:np.where(soaps==0)[0][0],:] for soaps in inframe]
+    return mean_mu_t, mean_cov_t, cov_mu_t, X_train, atomsel_element
+    #return avgmean, mean_cov_t, cov_mu_t, atomsel_element
+
+
+
+@profile
 def SOAP_COV_test(traj, interval, ids_atoms, HYPER_PARAMETERS, centers, neighbors):
     # select which atoms to compute the SOAP for (here all)
     calculator = SoapPowerSpectrum(**HYPER_PARAMETERS)
@@ -359,7 +532,7 @@ def SOAP_COV_test(traj, interval, ids_atoms, HYPER_PARAMETERS, centers, neighbor
     delta=np.zeros(maxlag)
     delta[maxlag//2]=1
     kernel=gaussian_filter(delta,sigma=(maxlag-1)//(2*3)) # cutoff at 3 sigma, leaves 0.1%
-    ntimesteps = np.zeros(len(atomsel_element))
+    ntimesteps = np.zeros(len(atomsel_element), dtype=int)
     #atomsel_element=[np.arange(atomsel.values.shape[0]) for _ in centers] #one entry for each SOAP center
     # for the PET case
     #atomsel_element=[[atom.index for atom in traj[0] if atom.number == atom_type] for atom_type in centers] #one entry for each SOAP center
@@ -382,7 +555,7 @@ def SOAP_COV_test(traj, interval, ids_atoms, HYPER_PARAMETERS, centers, neighbor
                     mu_t, 
                     mu_t,
                 )  
-                
+
                 sum_mu_t[atom_type_idx] += mu_t #sum over all same atoms
 
                 cov_t[atom_type_idx] += np.einsum("ia,ib->ab", avg_soap[atom_type] - mu_t, avg_soap[atom_type] - mu_t)/len(atom_type) #sum over all same atoms (have already summed over all times before) 
