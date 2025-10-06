@@ -1,32 +1,182 @@
+import torch 
+from abc import ABC, abstractmethod
+import metatensor.torch as mts
+from metatomic.torch import System, ModelEvaluationOptions, ModelOutput, systems_to_torch, load_atomistic_model
+from metatensor.torch import Labels, TensorBlock, mean_over_samples
+from featomic.torch import SoapPowerSpectrum
+import numpy as np
+from tqdm import tqdm
+from scipy.ndimage import gaussian_filter
+import ase.neighborlist
+from vesin import ase_neighbor_list
+from memory_profiler import profile
+
+from src.transformations.PCAtransform import PCA_obj
 
 
-class SOAP_descriptor():
-    def __init__(self, HYPERS, selected_atoms, centers, neighbors):
-        self.calculator = SoapPowerSpectrum(**HYPERS)
+class FullMethodBase(ABC):
+    """
+    Base class for full descriptor-based slow mode methods.
 
-        self.sel = Labels(
-            names=["center_type", "neighbor_1_type", "neighbor_2_type"],
-            values=torch.tensor([[i,j,k] for i in centers for j in neighbors for k in neighbors if j <=
-                k], dtype=torch.int32),
-        )
+    Defines a unified interface for training and projecting models
+    based on descriptor covariance matrices. Subclasses must implement
+    the descriptor-specific covariance computation in `compute_COV()`.
+    """
 
-        self.atomsel = Labels(
-            names=["atom"],
-            values=torch.tensor(selected_atoms, dtype=torch.int64).unsqueeze(-1),
-        )
+    def __init__(self, descriptor, interval, lag, label):
+        self.interval = interval
+        self.lag = lag
+        self.label = label
+        self.descriptor = descriptor
+        self.transformation = None
 
-    def calculate(self):
+    # ------------------------------------------------------------------
+    # Shared methods
+    # ------------------------------------------------------------------
+    def train(self, traj, selected_atoms):
+        """
+        Train the method using a molecular dynamics trajectory.
+
+        Parameters
+        ----------
+        traj : list[ase.Atoms]
+            The atomic configurations to compute the new representation for.
+        selected_atoms : list[int]
+            Indices of atoms to be included in the training.
+        """
+        self.selected_atoms = selected_atoms
+        self.descriptor.selected_atoms = selected_atoms
+
+        mean, cov1, cov2 = self.compute_COV(traj)
+
+        # Example: use PCA-based transformation
+        self.transformation = PCA_obj(n_components=4, label=self.label)
+        self.transformation.solve_GEV(mean, cov1, cov2)
+
+    def predict(self, traj, selected_atoms):
+        """
+        Project new trajectory frames into the trained collective variable (CV) space.
+
+        Parameters
+        ----------
+        traj : list[ase.Atoms]
+            Trajectory to project.
+        selected_atoms : list[int]
+            Indices of atoms to project.
+
+        Returns
+        -------
+        np.ndarray, shape (n_atoms, n_frames, n_components)
+            Projected low-dimensional representation.
+        """
+        if self.transformation is None:
+            raise RuntimeError("Call train() before predict().")
+
+        self.selected_atoms = selected_atoms
+        self.descriptor.selected_atoms = selected_atoms
+
+        systems = systems_to_torch(traj, dtype=torch.float64)
+        projected = []
+
+        for system in systems:
+            descriptor = self.descriptor.calculate([system]).values.numpy()
+            projected.append(self.transformation.project(descriptor))
+
+        projected = np.stack(projected, axis=0)
+        return projected.transpose(1, 0, 2)  # shape: (N_atoms, T, latent_dim)
+
+    # ------------------------------------------------------------------
+    # Abstract — subclasses must implement this
+    # ------------------------------------------------------------------
+    @abstractmethod
+    def compute_COV(self, traj):
+        """
+        Compute descriptor covariance matrices for the trajectory.
+
+        Must be implemented by subclasses. Should compute the covariance or time correlation
+        used to solve the Generalized EV problem (so 2 Covariance like matrixes should be returned)
+        Also for proper dataprojection, the correct mean has to be carried over.
+
+        Returns
+        -------
+        mean_mu_t, mean_cov_t, cov_mu_t : np.ndarray
+        """
+        pass
+
+
+
+
+
+
+
 
 class FullMethod():
 
-    def __init__(self, descriptor, selected_atoms, interval, lag):
+    def __init__(self, descriptor, interval, lag, label):
         self.interval = interval
         self.lag = lag
-        self.selected_atoms = selected_atoms
+        self.label = label
         self.descriptor = descriptor
         
+    def train(self, traj, selected_atoms):
+        """
+        Train the method.
+
+        Parameters
+        ----------
+        traj : List of ase.Atoms
+            The atomic configurations for which to compute the new representation.
+
+        Returns
+        -------
+        nothing
+        """
+        self.selected_atoms = selected_atoms
+        self.descriptor.selected_atoms = selected_atoms
+        mean, cov1, cov2 = self.compute_COV(traj)
+        self.transformation = PCA_obj(n_components=4, self.label)
+        self.transformation.solve_GEV(mean, cov1, cov2)
+        
+    def predict(self, traj, selected_atoms):
+        self.selected_atoms = selected_atoms
+        self.descriptor.selected_atoms = selected_atoms
+        systems = systems_to_torch(traj, dtype=torch.float64)
+
+        projected = []
+        for i, system in enumerate(systems):
+            descriptor = self.descriptor.calculate([system]).values.numpy()
+            projected.append(self.transformation.project(descriptor))
+        projected = np.stack(projected, axis=0)
+    
+        return projected.transpose(1,0,2) # should be shape N, T, P
+    
 
     def compute_COV(self, traj):
+        """
+        Compute time-averaged SOAP covariance matrices for each atomic species.
+
+        This method computes the temporal and ensemble covariance of SOAP 
+        descriptors for different atomic species over a molecular dynamics 
+        trajectory. It uses a Gaussian kernel to smooth SOAP vectors in time 
+        and separates intra-atomic (within-atom) and inter-atomic (between-atoms)
+        covariance contributions.
+
+        Parameters
+        ----------
+        traj : ase.io.Trajectory or list of ase.Atoms
+            Molecular dynamics trajectory containing atomic configurations 
+            for which the SOAP descriptors are computed.
+
+        Returns
+        -------
+        mean_mu_t : np.ndarray, shape (n_species, n_features)
+            Time-averaged mean SOAP vector for each atomic species.
+        mean_cov_t : np.ndarray, shape (n_species, n_features, n_features)
+            Mean covariance of SOAP descriptors across all timesteps and atoms 
+            of a given species.
+        cov_mu_t : np.ndarray, shape (n_species, n_features, n_features)
+            Temporal covariance of SOAP descriptor means (fluctuations in time).
+        """
         systems = systems_to_torch(traj, dtype=torch.float64)
         soap_block = self.descriptor.calculate(systems[:1])
         first_soap = soap_block.values.numpy()  
@@ -86,4 +236,4 @@ class FullMethod():
         self.mean_cov_t = mean_cov_t
         self.cov_mu_t = cov_mu_t
         
-        return mean_mu_t, mean_cov_t, cov_mu_t, atomsel_element
+        return mean_mu_t, mean_cov_t, cov_mu_t

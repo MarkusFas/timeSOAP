@@ -16,14 +16,26 @@ def check_analysis_inputs(traj, **kwargs):
     if kwargs['lag'] > kwargs['interval']:
         raise ValueError("lag cannot be larger than interval length")
 
-    if not isinstance(kwargs['selected_atoms'], list):
-        raise TypeError("selected_atoms must be a list")
+    if not isinstance(kwargs['train_selected_atoms'], list):
+        raise TypeError("train selected_atoms must be a list")
     
-    if not all(isinstance(x, int) for x in kwargs['selected_atoms']):
-        raise TypeError("All elements of selected_atoms must be integers")
+    if not isinstance(kwargs['test_selected_atoms'], list):
+        raise TypeError("test selected_atoms must be a list")
     
-    if not all(atoms_idx in traj[0].index for atoms_idx in kwargs['selected_atoms']):
+    if not all(isinstance(x, int) for x in kwargs['train_selected_atoms']):
+        raise TypeError("All elements of train_selected_atoms must be integers")
+    
+    if not all(atoms_idx in traj[0].index for atoms_idx in kwargs['train_selected_atoms']):
         raise ValueError(" Some of the selected atoms are not in the traj")
+    
+    if not all(isinstance(x, int) for x in kwargs['test_selected_atoms']):
+        raise TypeError("All elements of test_selected_atoms must be integers")
+    
+    if not all(atoms_idx in traj[0].index for atoms_idx in kwargs['test_selected_atoms']):
+        raise ValueError(" Some of the test selected atoms are not in the traj")
+
+    if set(kwargs['train_selected_atoms']) & set(kwargs['test_selected_atoms']):
+        raise ValueError("train selected atoms and test atoms shouldn't contain shared atoms")
     
     return kwargs
 
@@ -89,24 +101,34 @@ def setup_simulation(**kwargs):
 
     #3 Check Analysis
     check_analysis_inputs(traj, **kwargs)
-    selected_atoms = kwargs.pop('selected_atoms')
+    train_selected_atoms = kwargs.pop('train_selected_atoms')
     interval = kwargs.pop('interval')
     lag = kwargs.pop('lag')
     opt_methods = kwargs.pop('method')
+    opt_id = f'interval_{interval}_lag{lag}'
     implemented_opt = ['PCA', 'IVAC', 'TEMPPCA']
+
+    system = kwargs["system"]
+    version = kwargs["version"]
+    specifier = kwargs["specifier"]
+    run_dirs = [f'results/{system}/{version}/{descriptor}/{method}/{specifier}' for method in opt_methods]
+    run_ids = [method + '_' + opt_id + '_' + descriptor_id for method in opt_methods]
+    run_labels = [dir + id for dir, id in zip(run_dirs, run_ids)]
     used_methods = []
-    for method in opt_methods:
+    for i, method in enumerate(opt_methods):
         if method == 'PCA':
-            used_methods.append(allPCA(descriptor, selected_atoms, interval, lag))
+            used_methods.append(allPCA(descriptor, interval, lag, run_labels[i]))
         elif method == 'IVAC':
-            used_methods.append(IVAC())
+            raise NotImplementedError('Ivac implemteation coming soon')
         elif method == 'TEMPPCA':
-            used_methods.append(tempPCA())
-    else:
-       raise ValueError(f"method must be one of {implemented_opt}, got {opt_methods}")
+            raise NotImplementedError('temppca implemteation coming soon')
+        else:
+            raise NotImplementedError(f"method must be one of {implemented_opt}, got {opt_methods}")
 
     
     #4 Check Post Processing
+    # TODO check in kwargs which output plots etc are requested and should be computed
+    
+    # Start simulation with the set inputs
 
-    label = descriptor_id
-    run_simulation(traj, used_methods, **kwargs)
+    run_simulation(traj, used_methods, run_ids, run_dirs, **kwargs)
