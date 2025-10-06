@@ -1,8 +1,8 @@
-from src.read_data import read_trj, tamper_water_trj
-from src.descriptors import eval_SOAP, SOAP_COV, SOAP_COV_repair, SOAP_PCA, SOAP_COV_test, SOAP_COV_directPCAtest
-from src.PCAtransform import pcatransform, PCA_obj
+from src.setup.read_data import read_trj, tamper_water_trj
+from src.old_scripts.descriptors import eval_SOAP, SOAP_COV, SOAP_COV_repair, SOAP_PCA, SOAP_COV_test, SOAP_COV_directPCAtest
+from src.transformations.PCAtransform import pcatransform, PCA_obj
 from src.timeaverages import timeaverage
-from src.fourier import fourier_trafo
+from src.old_scripts.fourier import fourier_trafo
 from src.visualize import plot_pca, plot_pca_merge, plot_pca_height, plot_2pca, plot_compare_timeave_PCA, plot_compare_atoms_PCA
 import numpy as np
 from tqdm import tqdm

@@ -28,7 +28,7 @@ class FullMethodBase(ABC):
         self.lag = lag
         self.label = label
         self.descriptor = descriptor
-        self.transformation = None
+        self.transformations = None
 
     # ------------------------------------------------------------------
     # Shared methods
@@ -50,8 +50,10 @@ class FullMethodBase(ABC):
         mean, cov1, cov2 = self.compute_COV(traj)
 
         # Example: use PCA-based transformation
-        self.transformation = PCA_obj(n_components=4, label=self.label)
-        self.transformation.solve_GEV(mean, cov1, cov2)
+        self.transformations = [PCA_obj(n_components=4, label=self.label) for n in range(cov1.shape[0])]
+        
+        for i, trafo in enumerate(self.transformations):
+            trafo.solve_GEV(mean, cov1[i], cov2[i])
 
     def predict(self, traj, selected_atoms):
         """
@@ -69,21 +71,24 @@ class FullMethodBase(ABC):
         np.ndarray, shape (n_atoms, n_frames, n_components)
             Projected low-dimensional representation.
         """
-        if self.transformation is None:
+        if self.transformations is None:
             raise RuntimeError("Call train() before predict().")
 
         self.selected_atoms = selected_atoms
         self.descriptor.selected_atoms = selected_atoms
 
         systems = systems_to_torch(traj, dtype=torch.float64)
-        projected = []
+       
+        projected_per_type = []
+        for trafo in self.transformations:
+            projected = []
+            for system in systems:
+                descriptor = self.descriptor.calculate([system]).values.numpy()
+                projected.append(trafo.project(descriptor))
 
-        for system in systems:
-            descriptor = self.descriptor.calculate([system]).values.numpy()
-            projected.append(self.transformation.project(descriptor))
+            projected_per_type.append(np.stack(projected, axis=0).transpose(1, 0, 2))
 
-        projected = np.stack(projected, axis=0)
-        return projected.transpose(1, 0, 2)  # shape: (N_atoms, T, latent_dim)
+        return projected_per_type  # shape: (#centers ,N_atoms, T, latent_dim)
 
     # ------------------------------------------------------------------
     # Abstract — subclasses must implement this
@@ -93,147 +98,21 @@ class FullMethodBase(ABC):
         """
         Compute descriptor covariance matrices for the trajectory.
 
-        Must be implemented by subclasses. Should compute the covariance or time correlation
-        used to solve the Generalized EV problem (so 2 Covariance like matrixes should be returned)
-        Also for proper dataprojection, the correct mean has to be carried over.
-
-        Returns
-        -------
-        mean_mu_t, mean_cov_t, cov_mu_t : np.ndarray
-        """
-        pass
-
-
-
-
-
-
-
-
-class FullMethod():
-
-    def __init__(self, descriptor, interval, lag, label):
-        self.interval = interval
-        self.lag = lag
-        self.label = label
-        self.descriptor = descriptor
-        
-    def train(self, traj, selected_atoms):
-        """
-        Train the method.
-
-        Parameters
-        ----------
-        traj : List of ase.Atoms
-            The atomic configurations for which to compute the new representation.
-
-        Returns
-        -------
-        nothing
-        """
-        self.selected_atoms = selected_atoms
-        self.descriptor.selected_atoms = selected_atoms
-        mean, cov1, cov2 = self.compute_COV(traj)
-        self.transformation = PCA_obj(n_components=4, self.label)
-        self.transformation.solve_GEV(mean, cov1, cov2)
-        
-    def predict(self, traj, selected_atoms):
-        self.selected_atoms = selected_atoms
-        self.descriptor.selected_atoms = selected_atoms
-        systems = systems_to_torch(traj, dtype=torch.float64)
-
-        projected = []
-        for i, system in enumerate(systems):
-            descriptor = self.descriptor.calculate([system]).values.numpy()
-            projected.append(self.transformation.project(descriptor))
-        projected = np.stack(projected, axis=0)
-    
-        return projected.transpose(1,0,2) # should be shape N, T, P
-    
-
-    def compute_COV(self, traj):
-        """
-        Compute time-averaged SOAP covariance matrices for each atomic species.
+        Must be implemented by subclasses. Compute time-averaged SOAP covariance 
+        matrices for each atomic species.
 
         This method computes the temporal and ensemble covariance of SOAP 
         descriptors for different atomic species over a molecular dynamics 
         trajectory. It uses a Gaussian kernel to smooth SOAP vectors in time 
         and separates intra-atomic (within-atom) and inter-atomic (between-atoms)
-        covariance contributions.
-
-        Parameters
-        ----------
-        traj : ase.io.Trajectory or list of ase.Atoms
-            Molecular dynamics trajectory containing atomic configurations 
-            for which the SOAP descriptors are computed.
-
+        covariance contributions. Should compute the covariance or time correlation
+        used to solve the Generalized EV problem (so 2 Covariance like matrixes should 
+        be returned).
+        Also for proper prediction, the correct mean used for computing the covariance(s) 
+        has to be carried over.
+        
         Returns
         -------
-        mean_mu_t : np.ndarray, shape (n_species, n_features)
-            Time-averaged mean SOAP vector for each atomic species.
-        mean_cov_t : np.ndarray, shape (n_species, n_features, n_features)
-            Mean covariance of SOAP descriptors across all timesteps and atoms 
-            of a given species.
-        cov_mu_t : np.ndarray, shape (n_species, n_features, n_features)
-            Temporal covariance of SOAP descriptor means (fluctuations in time).
+        mean_mu_t, mean_cov_t, cov_mu_t : np.ndarray
         """
-        systems = systems_to_torch(traj, dtype=torch.float64)
-        soap_block = self.descriptor.calculate(systems[:1])
-        first_soap = soap_block.values.numpy()  
-        self.atomsel_element = [[idx for idx, label in enumerate(soap_block.samples.values.numpy()) if label[2] == atom_type] for atom_type in centers]
-    
-        buffer = np.zeros((first_soap.shape[0], self.interval, first_soap.shape[1]))
-        cov_t = np.zeros((len(self.atomsel_element), first_soap.shape[1], first_soap.shape[1],))
-        sum_mu_t = np.zeros((len(self.atomsel_element),first_soap.shape[1],))
-        scatter_mut = np.zeros((len(self.atomsel_element),first_soap.shape[1], first_soap.shape[1],))
-        nsmp = np.zeros(len(self.atomsel_element))
-        delta=np.zeros(self.interval)
-        delta[self.interval//2]=1
-        kernel=gaussian_filter(delta,sigma=(self.interval-1)//(2*3)) # cutoff at 3 sigma, leaves 0.1%
-        ntimesteps = np.zeros(len(self.atomsel_element), dtype=int)
-
-        for fidx, system in tqdm(enumerate(systems), total=len(systems), desc="Computing SOAPs"):
-            new_soap_values = self.descriptor.calculate([system]).values.numpy()
-            if fidx >= self.interval:
-                roll_kernel = np.roll(kernel, fidx%self.interval)
-                # computes a contribution to the correlation function
-                # the buffer contains data from fidx-maxlag to fidx. add a forward ACF
-                avg_soap = np.einsum("j,ija->ia", roll_kernel, buffer) #smoothen
-                for atom_type_idx, atom_type in enumerate(self.atomsel_element):
-                    mu_t = avg_soap[atom_type].mean(axis=0)
-                    scatter_mut[atom_type_idx] += np.einsum(
-                        "a,b->ab", 
-                        mu_t, 
-                        mu_t,
-                    )  
-
-                    sum_mu_t[atom_type_idx] += mu_t #sum over all same atoms
-
-                    cov_t[atom_type_idx] += np.einsum("ia,ib->ab", avg_soap[atom_type] - mu_t, avg_soap[atom_type] - mu_t)/len(atom_type) #sum over all same atoms (have already summed over all times before) 
-                    nsmp[atom_type_idx] += len(atom_type)
-                    ntimesteps[atom_type_idx] += 1
-
-            buffer[:,fidx%self.interval,:] = new_soap_values
-
-        mean_cov_t = np.zeros((len(self.atomsel_element), new_soap_values.shape[1], new_soap_values.shape[1]))
-        cov_mu_t = np.zeros((len(self.atomsel_element), new_soap_values.shape[1], new_soap_values.shape[1]))
-        mean_mu_t = np.zeros((len(self.atomsel_element), first_soap.shape[1],))
-
-        # autocorrelation matrix - remove mean
-        for atom_type_idx, atom_type in enumerate(self.atomsel_element):
-            
-            mean_cov_t[atom_type_idx] = cov_t[atom_type_idx]/ntimesteps[atom_type_idx]
-            # COV = 1/N ExxT - mumuT
-            mean_mu_t[atom_type_idx] = sum_mu_t[atom_type_idx]/ntimesteps[atom_type_idx]
-            # add temporal covariance
-            cov_mu_t[atom_type_idx] = scatter_mut[atom_type_idx]/ntimesteps[atom_type_idx] - np.einsum('i,j->ij', mean_mu_t[atom_type_idx], mean_mu_t[atom_type_idx])
-
-        #all_soap_values = eval_SOAP(systems, calculator, sel, atomsel).values.numpy()
-        #C_np = np.cov(all_soap_values, rowvar=False, bias=True)   # population covariance
-        #print(np.allclose(C_np, avgcc[0], atol=1e-8))
-
-        self.mean_mu_t = mean_mu_t
-        self.mean_cov_t = mean_cov_t
-        self.cov_mu_t = cov_mu_t
-        
-        return mean_mu_t, mean_cov_t, cov_mu_t
+        pass

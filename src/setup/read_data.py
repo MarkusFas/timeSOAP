@@ -4,21 +4,22 @@ import matplotlib.pyplot as plt
 import numpy as np
 import random
 
-def read_trj(file, format='extxyz', index=':'):
-    trj = ase.io.read(file, format=format, index=index)
+def read_trj(file, index=':'):
+    trj = ase.io.read(file, index=index)
     fig, ax = plt.subplots()
-    plot_atoms(trj[0],
-           ax=ax,
-           radii=0.3,
-           rotation=(('90x,0y,0z')),  # view direction
-           show_unit_cell=1)         # draw full box
+    #plot_atoms(trj[0],
+    #       ax=ax,
+    #       radii=0.3,
+    #       rotation=(('90x,0y,0z')),  # view direction
+    #       show_unit_cell=1)         # draw full box
 
     # Save figure
-    plt.savefig("atoms.png", dpi=300, bbox_inches="tight")
-    plt.close()
+    #plt.show()
+    #plt.savefig("atoms.png", dpi=300, bbox_inches="tight")
+    #plt.close()
     #ids_atoms = [atom.index for atom in trj[0] if atom.symbol == 'Te']
-    ids_atoms = [atom.index for atom in trj[0]]
-    return trj, ids_atoms
+    #ids_atoms = [atom.index for atom in trj[0]]
+    return trj
 
 
 def get_molecule_indices(o_idx):

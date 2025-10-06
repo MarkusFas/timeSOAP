@@ -52,11 +52,10 @@ class PCA_obj:
         self.eigvecs = self.eigvecs[:,::-1]
     
     def solve_GEV(self, mu, COV_1, COV_2):
-        eps = 1e-10
         eps1 = 1e-8 * np.trace(COV_1) / COV_1.shape[0]
         COV_1_reg = 0.5*(COV_1 + COV_1.T) + eps1*np.eye(COV_1.shape[0])
             
-        eps2 = 1e-8 * np.trace(COV_2) / COV_2.shape[0]
+        eps2 = 1e-7 * np.trace(COV_2) / COV_2.shape[0]
         COV_2_reg = 0.5*(COV_2 + COV_2.T) + eps2*np.eye(COV_2.shape[0])
             
         self.eigvals, self.eigvecs = eigh(COV_1_reg, COV_2_reg)

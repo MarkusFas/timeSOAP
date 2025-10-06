@@ -1,8 +1,8 @@
-from src.read_data import read_trj, tamper_water_trj
-from src.descriptors import SOAP_mean, SOAP_full
-from src.PCAtransform import pcatransform, PCA_obj
+from src.setup.read_data import read_trj, tamper_water_trj
+from src.old_scripts.descriptors import SOAP_mean, SOAP_full
+from src.transformations.PCAtransform import pcatransform, PCA_obj
 from src.timeaverages import timeaverage
-from src.fourier import fourier_trafo
+from src.old_scripts.fourier import fourier_trafo
 from src.visualize import plot_compare_timeave, plot_compare_atoms
 import numpy as np
 from tqdm import tqdm
