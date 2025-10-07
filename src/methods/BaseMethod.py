@@ -45,8 +45,7 @@ class FullMethodBase(ABC):
             Indices of atoms to be included in the training.
         """
         self.selected_atoms = selected_atoms
-        self.descriptor.selected_atoms = selected_atoms
-
+        self.descriptor.set_samples(selected_atoms)
         mean, cov1, cov2 = self.compute_COV(traj)
 
         # Example: use PCA-based transformation
@@ -75,8 +74,7 @@ class FullMethodBase(ABC):
             raise RuntimeError("Call train() before predict().")
 
         self.selected_atoms = selected_atoms
-        self.descriptor.selected_atoms = selected_atoms
-
+        self.descriptor.set_samples(selected_atoms)
         systems = systems_to_torch(traj, dtype=torch.float64)
        
         projected_per_type = []

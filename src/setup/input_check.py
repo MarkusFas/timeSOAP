@@ -1,7 +1,7 @@
 from ase.io.trajectory import Trajectory
 from itertools import chain
 
-from src.methods import PCA, IVAC, TempPCA
+from src.methods import PCA, IVAC, TempPCA, PCAfull
 from src.descriptors.SOAP import SOAP_descriptor
 from src.setup.simulation import run_simulation
 from src.setup.read_data import read_trj
@@ -153,7 +153,9 @@ def setup_simulation(**kwargs):
         elif method == 'IVAC':
             raise NotImplementedError('Ivac implemteation coming soon')
         elif method == 'TEMPPCA':
-            raise NotImplementedError('temppca implementation coming soon')
+            used_methods.append(TempPCA(descriptor, interval, run_labels[i]))
+        elif method == 'PCAfull':
+            used_methods.append(PCAfull(descriptor, interval, run_labels[i]))
         else:
             raise NotImplementedError(f"method must be one of {implemented_opt}, got {opt_methods}")
 

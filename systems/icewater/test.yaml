@@ -1,16 +1,16 @@
 # systems/icewater/test.yaml
 
-system: water
+system: watertrj
 specifier: testA
-interval: 1
+interval: 250
 lag: 0
-train_selected_atoms: 1
-test_selected_atoms: 1
-methods: PCA
+train_selected_atoms: 20
+test_selected_atoms: 20
+methods: PCAfull
 
 input_params:
   fname: '/Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/data/icebox/icewater-long.xyz'
-  indices: 0:10
+  indices: ':'
 
 SOAP_params:
   centers: [8]
@@ -19,4 +19,4 @@ SOAP_params:
   max_angular: 8
   max_radial: 3
 
-plots: ["projection"]
+plots: ["projection", "histogram"]
