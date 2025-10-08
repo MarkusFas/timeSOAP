@@ -1,0 +1,24 @@
+# systems/icewater/test.yaml
+
+system: gete
+specifier: test1
+interval: 1
+lag: 0
+train_selected_atoms: 30
+test_selected_atoms: 30
+methods: TempPCA
+
+input_params:
+  fname: 
+    - /Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/data/gete/ramp_up.pos_0.extxyz
+    - /Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/data/gete/ramp_down.pos_0.extxyz
+  indices: ':'
+
+SOAP_params:
+  centers: [52]
+  neighbors: [32,52]
+  cutoff: 5
+  max_angular: 6
+  max_radial: 6
+
+plots: ["projection", "histogram"]

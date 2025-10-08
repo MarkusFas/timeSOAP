@@ -18,7 +18,7 @@ class TempPCA(FullMethodBase):
 
     def __init__(self, descriptor, interval, label):
         super().__init__(descriptor, interval, lag=0, label=label)
-        
+
     def compute_COV(self, traj):
         """
         Compute time-averaged SOAP covariance matrices for each atomic species.
@@ -48,7 +48,7 @@ class TempPCA(FullMethodBase):
         systems = systems_to_torch(traj, dtype=torch.float64)
         soap_block = self.descriptor.calculate(systems[:1])
         first_soap = soap_block.values.numpy()  
-        self.atomsel_element = [[idx for idx, label in enumerate(soap_block.samples.values.numpy()) if label[2] == atom_type] for atom_type in centers]
+        self.atomsel_element = [[idx for idx, label in enumerate(soap_block.samples.values.numpy()) if label[2] == atom_type] for atom_type in self.descriptor.centers]
     
         buffer = np.zeros((first_soap.shape[0], self.interval, first_soap.shape[1]))
         cov_t = np.zeros((len(self.atomsel_element), first_soap.shape[1], first_soap.shape[1],))

@@ -2,11 +2,11 @@
 
 system: watertrj
 specifier: testA
-interval: 250
+interval: 100
 lag: 0
-train_selected_atoms: 20
+train_selected_atoms: 50
 test_selected_atoms: 20
-methods: PCAfull
+methods: TempPCA
 
 input_params:
   fname: '/Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/data/icebox/icewater-long.xyz'

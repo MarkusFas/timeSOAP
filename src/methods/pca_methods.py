@@ -49,7 +49,7 @@ class PCA(FullMethodBase):
         soap_block = self.descriptor.calculate(systems[:1])
         first_soap = soap_block.values.numpy()  
         self.atomsel_element = [[idx for idx, label in enumerate(soap_block.samples.values.numpy()) if label[2] == atom_type] for atom_type in self.descriptor.centers]
-    
+
         buffer = np.zeros((first_soap.shape[0], self.interval, first_soap.shape[1]))
         cov_t = np.zeros((len(self.atomsel_element), first_soap.shape[1], first_soap.shape[1],))
         sum_soaps = np.zeros((len(self.atomsel_element),first_soap.shape[1],))
@@ -67,20 +67,20 @@ class PCA(FullMethodBase):
                 # the buffer contains data from fidx-maxlag to fidx. add a forward ACF
                 avg_soap = np.einsum("j,ija->ia", roll_kernel, buffer) #smoothen
                 for atom_type_idx, atom_type in enumerate(self.atomsel_element):
-                    sum_soaps[atom_type_idx] += avg_soap[atom_type]
+                    sum_soaps[atom_type_idx] += avg_soap[atom_type].sum(axis=0)
                     cov_t[atom_type_idx] += np.einsum("ia,ib->ab", avg_soap[atom_type], avg_soap[atom_type]) #sum over all same atoms (have already summed over all times before) 
                     nsmp[atom_type_idx] += len(atom_type)
                     
             buffer[:,fidx%self.interval,:] = new_soap_values
 
-        mu = np.zeros((len(self.atomsel_element), new_soap_values.shape[1], new_soap_values.shape[1]))
+        mu = np.zeros((len(self.atomsel_element), new_soap_values.shape[1]))
         cov = np.zeros((len(self.atomsel_element), new_soap_values.shape[1], new_soap_values.shape[1]))
         
         # autocorrelation matrix - remove mean
         for atom_type_idx, atom_type in enumerate(self.atomsel_element):
-            mu[atom_type_idx] = sum_soaps[atom_type_idx]/ntimesteps[atom_type_idx]
+            mu[atom_type_idx] = sum_soaps[atom_type_idx]/nsmp[atom_type_idx]
             # COV = 1/N ExxT - mumuT
-            cov[atom_type_idx] = cov_t[atom_type_idx]/ntimesteps[atom_type_idx] - np.einsum('i,j->ij', mu[atom_type_idx], mu[atom_type_idx])
+            cov[atom_type_idx] = cov_t[atom_type_idx]/nsmp[atom_type_idx] - np.einsum('i,j->ij', mu[atom_type_idx], mu[atom_type_idx])
         
         return mu, cov, [np.eye(c.shape[0]) for c in cov]
 
@@ -145,7 +145,7 @@ class PCAfull(FullMethodBase):
                         "a,b->ab", 
                         mu_t, 
                         mu_t,
-                    )  
+                    ) 
 
                     sum_mu_t[atom_type_idx] += mu_t #sum over all same atoms
 

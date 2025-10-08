@@ -52,13 +52,20 @@ class PCA_obj:
         self.eigvecs = self.eigvecs[:,::-1]
     
     def solve_GEV(self, mu, COV_1, COV_2):
-        eps1 = 1e-8 * np.trace(COV_1) / COV_1.shape[0]
+        eps_factors = [1e-10, 1e-9, 1e-8, 1e-7]
+        eps1 = 1E-8 * np.trace(COV_1) / COV_1.shape[0]
         COV_1_reg = 0.5*(COV_1 + COV_1.T) + eps1*np.eye(COV_1.shape[0])
-            
-        eps2 = 1e-7 * np.trace(COV_2) / COV_2.shape[0]
-        COV_2_reg = 0.5*(COV_2 + COV_2.T) + eps2*np.eye(COV_2.shape[0])
-            
-        self.eigvals, self.eigvecs = eigh(COV_1_reg, COV_2_reg)
+        
+        factor = 1E-10
+        while(factor <= 1E-7):
+            eps2 = factor * np.trace(COV_2) / COV_2.shape[0]
+            COV_2_reg = 0.5*(COV_2 + COV_2.T) + eps2*np.eye(COV_2.shape[0])
+            try:
+                self.eigvals, self.eigvecs = eigh(COV_1_reg, COV_2_reg)
+            except np.linalg.LinAlgError:
+                factor *= 10
+
+        print(f'used a factor of {factor} for regularization')
         # reorder so that largest EV is first
         self.mu = mu
         self.eigvals = self.eigvals[::-1]

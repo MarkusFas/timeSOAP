@@ -148,13 +148,13 @@ def setup_simulation(**kwargs):
     used_methods = []
 
     for i, method in enumerate(opt_methods):
-        if method == 'PCA':
+        if method.upper() == 'PCA':
             used_methods.append(PCA(descriptor, interval, run_labels[i]))
-        elif method == 'IVAC':
+        elif method.upper() == 'IVAC':
             raise NotImplementedError('Ivac implemteation coming soon')
-        elif method == 'TEMPPCA':
+        elif method.upper() == 'TEMPPCA':
             used_methods.append(TempPCA(descriptor, interval, run_labels[i]))
-        elif method == 'PCAfull':
+        elif method.upper() == 'PCAfull':
             used_methods.append(PCAfull(descriptor, interval, run_labels[i]))
         else:
             raise NotImplementedError(f"method must be one of {implemented_opt}, got {opt_methods}")

@@ -39,8 +39,10 @@ def run_simulation(trj, used_methods, run_ids, run_dirs, **kwargs):
 
         if "histogram" in plots:
             for i, proj in enumerate(X):
-                plot_2pca(X, label + f'_{i}')
+                plot_2pca(proj, label + f'_{i}')
             print('Plotted histogram')
+            
+        print('Plots saved at ' + label)
 
 if __name__ == '__main__':
     print('Nothing to do here')
