@@ -90,7 +90,6 @@ class TempPCA(FullMethodBase):
 
         # autocorrelation matrix - remove mean
         for atom_type_idx, atom_type in enumerate(self.atomsel_element):
-            
             mean_cov_t[atom_type_idx] = cov_t[atom_type_idx]/ntimesteps[atom_type_idx]
             # COV = 1/N ExxT - mumuT
             mean_mu_t[atom_type_idx] = sum_mu_t[atom_type_idx]/ntimesteps[atom_type_idx]
@@ -105,4 +104,6 @@ class TempPCA(FullMethodBase):
         self.mean_cov_t = mean_cov_t
         self.cov_mu_t = cov_mu_t
         
+        #return mean_mu_t, cov_mu_t, [np.eye(cov.shape[0]) for cov in cov_mu_t]
+
         return mean_mu_t, cov_mu_t, mean_cov_t 

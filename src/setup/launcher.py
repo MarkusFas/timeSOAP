@@ -29,18 +29,18 @@ if __name__ == "__main__":
     params = merge_params(DEFAULT_PARAMS, user_cfg, input_file)
     setup_simulation(**params)
 
-    input_file = 'systems/gete/test_interval100.yaml'
+    input_file = 'systems/gete/test_interval1000.yaml'
     user_cfg = load_config(input_file)
     params = merge_params(DEFAULT_PARAMS, user_cfg, input_file)
     setup_simulation(**params)
 
-    input_file = 'systems/gete/test_interval250.yaml'
+    input_file = 'systems/gete/test_interval50.yaml'
     user_cfg = load_config(input_file)
     params = merge_params(DEFAULT_PARAMS, user_cfg, input_file)
     setup_simulation(**params)
 
-    exit()
-    input_file = 'systems/icewater/test_interval250.yaml'
+    
+    input_file = 'systems/icewater/test_interval500.yaml'
     user_cfg = load_config(input_file)
     params = merge_params(DEFAULT_PARAMS, user_cfg, input_file)
     setup_simulation(**params)

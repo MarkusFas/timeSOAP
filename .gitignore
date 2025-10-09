@@ -1,3 +1,8 @@
 results/
 data/
 misc/
+*.pyc 
+*/*.pyc
+*/*/*.pyc
+*/*/*/*.pyc
+*/*/*/*/*.pyc

@@ -2,13 +2,12 @@
 
 system: gete
 specifier: test1
-interval: 250
+interval: 500
 lag: 0
 train_selected_atoms: 30
 test_selected_atoms: 30
 methods: 
   - TempPCA
-  - PCA
   - PCAfull
 
 input_params:

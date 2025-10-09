@@ -52,7 +52,7 @@ class FullMethodBase(ABC):
         self.transformations = [PCA_obj(n_components=4, label=self.label) for n in range(cov1.shape[0])]
 
         for i, trafo in enumerate(self.transformations):
-            trafo.solve_GEV(mean, cov1[i], cov2[i])
+            trafo.solve_GEV(mean[i], cov1[i], cov2[i])
 
     def predict(self, traj, selected_atoms):
         """
@@ -111,6 +111,6 @@ class FullMethodBase(ABC):
         
         Returns
         -------
-        mean_mu_t, mean_cov_t, cov_mu_t : np.ndarray
+        mean_mu_t, cov_mu_t, mean_cov_t : np.ndarray
         """
         pass
