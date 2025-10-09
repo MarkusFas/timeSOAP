@@ -12,7 +12,7 @@ random.seed(7)
 def run_simulation(trj, used_methods, run_ids, run_dirs, **kwargs):
 
     for i, method in tqdm(enumerate(used_methods)):
-        random.seed(1)
+        random.seed(7)
         # create labels and directories for results 
         label = run_ids[i]
         run_dir = run_dirs[i]
@@ -23,24 +23,13 @@ def run_simulation(trj, used_methods, run_ids, run_dirs, **kwargs):
         selected_atoms = [idx for idx, number in enumerate(trj[0].get_atomic_numbers()) if number==method.descriptor.centers[0]]
         random.shuffle(selected_atoms) 
         train_atoms = selected_atoms[:N_train]
-        test_atoms = selected_atoms[N_train: N_train + N_test]
+        test_atoms = selected_atoms[10+N_train: 10+N_train + N_test]
 
         # train our method by specifying the selected atoms
         method.train(trj, train_atoms)
 
-        metrics = np.array([np.trace(method.mean_cov_t[0]),
-                    np.trace(method.cov_mu_t[0])])
-        header = ["spatialCov", "tempCov"]
-
-        # Make metrics a 2D row vector: shape (1, 2)
-        np.savetxt(
-            label + "_.csv",
-            metrics.reshape(1, -1),
-            fmt="%.6f",
-            delimiter="\t",
-            header="\t".join(header),
-            comments=""
-        )
+        method.log_metrics()
+        
             
         # get predictions with the new representation
         X = method.predict(trj, test_atoms) ##centers T,N,P

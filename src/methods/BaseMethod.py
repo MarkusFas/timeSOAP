@@ -47,12 +47,12 @@ class FullMethodBase(ABC):
         self.selected_atoms = selected_atoms
         self.descriptor.set_samples(selected_atoms)
         mean, cov1, cov2 = self.compute_COV(traj)
-
         # Example: use PCA-based transformation
         self.transformations = [PCA_obj(n_components=4, label=self.label) for n in range(cov1.shape[0])]
 
         for i, trafo in enumerate(self.transformations):
             trafo.solve_GEV(mean[i], cov1[i], cov2[i])
+
 
     def predict(self, traj, selected_atoms):
         """
@@ -112,5 +112,20 @@ class FullMethodBase(ABC):
         Returns
         -------
         mean_mu_t, cov_mu_t, mean_cov_t : np.ndarray
+        """
+        pass
+
+    # ------------------------------------------------------------------
+    # Abstract — subclasses must implement this
+    # ------------------------------------------------------------------
+    @abstractmethod
+    def log_metrics(self):
+        """
+        Log metrics from the run, including the covariances.
+
+        
+        Returns
+        -------
+        empty
         """
         pass

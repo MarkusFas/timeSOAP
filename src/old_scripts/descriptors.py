@@ -603,7 +603,6 @@ def SOAP_COV_test(traj, interval, ids_atoms, HYPER_PARAMETERS, centers, neighbor
         values=torch.tensor(ids_atoms, dtype=torch.int64).unsqueeze(-1),
     )
 
-
     systems = systems_to_torch(traj, dtype=torch.float64)
     soap_block = eval_SOAP(systems[:1], calculator, sel, atomsel)
     first_soap = soap_block.values.numpy()

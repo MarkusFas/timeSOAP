@@ -107,3 +107,27 @@ class TempPCA(FullMethodBase):
         #return mean_mu_t, cov_mu_t, [np.eye(cov.shape[0]) for cov in cov_mu_t]
 
         return mean_mu_t, cov_mu_t, mean_cov_t 
+
+
+    def log_metrics(self):
+        """
+        Log metrics from the run, including the covariances.
+
+        
+        Returns
+        -------
+        empty
+        """
+        metrics = np.array([[np.trace(mean_cov), np.trace(cov_mu)] 
+                    for mean_cov, cov_mu in zip(self.mean_cov_t, self.cov_mu_t)])
+        header = ["spatialCov", "tempCov"]
+
+        # Make metrics a 2D row vector: shape (1, 2)
+        np.savetxt(
+            self.label + "_.csv",
+            metrics,
+            fmt="%.6f",
+            delimiter="\t",
+            header="\t".join(header),
+            comments=""
+        )

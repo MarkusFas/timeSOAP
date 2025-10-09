@@ -1,11 +1,11 @@
 # systems/icewater/test.yaml
 
 system: gete
-specifier: tempcov-nonorm
+specifier: tempcov-compareold-otheratoms-eigh-10
 interval: 1
 lag: 0
 train_selected_atoms: 30
-test_selected_atoms: 30
+test_selected_atoms: 20
 methods: 
   - TempPCA
   - PCAfull
@@ -19,8 +19,8 @@ input_params:
 SOAP_params:
   centers: [52]
   neighbors: [32,52]
-  cutoff: 5
-  max_angular: 6
+  cutoff: 6
+  max_angular: 5
   max_radial: 6
 
 plots: ["projection", "histogram"]

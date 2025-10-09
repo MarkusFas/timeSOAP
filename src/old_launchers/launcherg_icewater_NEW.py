@@ -7,7 +7,7 @@ import numpy as np
 from tqdm import tqdm
 from pathlib import Path
 import os
-from random import shuffle
+import random 
 data = '/Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/data/icebox/icewater-long.xyz'
 SOAP_cutoff = 6
 SOAP_max_angular = 5
@@ -38,7 +38,8 @@ def run_simulation(name):
 
     color = np.array([atoms.positions[:,2] for atoms in trj]).T
     oxygen_atoms = [idx for idx, number in enumerate(trj[0].get_atomic_numbers()) if number==8] # only oxygen atoms
-    shuffle(oxygen_atoms)
+    random.seed(7)
+    random.shuffle(oxygen_atoms)
     train_atoms = oxygen_atoms[:20] # take only 20 random atoms
     test_atoms = oxygen_atoms[30:50] # take only 20 random atoms
     

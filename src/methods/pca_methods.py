@@ -82,9 +82,31 @@ class PCA(FullMethodBase):
             mu[atom_type_idx] = sum_soaps[atom_type_idx]/nsmp[atom_type_idx]
             # COV = 1/N ExxT - mumuT
             cov[atom_type_idx] = cov_t[atom_type_idx]/nsmp[atom_type_idx] - np.einsum('i,j->ij', mu[atom_type_idx], mu[atom_type_idx])
-        
+        self.cov_tot = cov
         return mu, cov, [np.eye(c.shape[0]) for c in cov]
 
+
+    def log_metrics(self):
+        """
+        Log metrics from the run, including the covariances.
+
+        
+        Returns
+        -------
+        empty
+        """
+        metrics = np.array([[np.trace(tot_cov)] for tot_cov in self.cov_tot])
+        header = ["spatialCov", "tempCov"]
+
+        # Make metrics a 2D row vector: shape (1, 2)
+        np.savetxt(
+            self.label + "_.csv",
+            metrics,
+            fmt="%.6f",
+            delimiter="\t",
+            header="\t".join(header),
+            comments=""
+        )
 
 class PCAtest(FullMethodBase):
 
@@ -156,6 +178,29 @@ class PCAtest(FullMethodBase):
         
         return mu, cov, [np.eye(c.shape[0]) for c in cov]
 
+
+    def log_metrics(self):
+        """
+        Log metrics from the run, including the covariances.
+
+        
+        Returns
+        -------
+        empty
+        """
+        metrics = np.array([[np.trace(mean_cov), np.trace(cov_mu)] 
+                    for mean_cov, cov_mu in zip(self.mean_cov_t, self.cov_mu_t)])
+        header = ["spatialCov", "tempCov"]
+
+        # Make metrics a 2D row vector: shape (1, 2)
+        np.savetxt(
+            self.label + "_.csv",
+            metrics,
+            fmt="%.6f",
+            delimiter="\t",
+            header="\t".join(header),
+            comments=""
+        )
 
 
 class PCAfull(FullMethodBase):
@@ -251,4 +296,25 @@ class PCAfull(FullMethodBase):
         total_cov = mean_cov_t + cov_mu_t
         return mean_mu_t, total_cov, [np.eye(cov.shape[0]) for cov in total_cov]
 
-    
+    def log_metrics(self):
+        """
+        Log metrics from the run, including the covariances.
+
+        
+        Returns
+        -------
+        empty
+        """
+        metrics = np.array([[np.trace(mean_cov), np.trace(cov_mu)] 
+                    for mean_cov, cov_mu in zip(self.mean_cov_t, self.cov_mu_t)])
+        header = ["spatialCov", "tempCov"]
+
+        # Make metrics a 2D row vector: shape (1, 2)
+        np.savetxt(
+            self.label + "_.csv",
+            metrics,
+            fmt="%.6f",
+            delimiter="\t",
+            header="\t".join(header),
+            comments=""
+        )

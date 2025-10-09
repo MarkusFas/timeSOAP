@@ -1,0 +1,24 @@
+# systems/icewater/test.yaml
+
+system: interface_melting
+specifier: 
+interval: 100
+lag: 0
+train_selected_atoms: 30
+test_selected_atoms: 20
+methods: 
+  - TempPCA
+  - PCAfull
+
+input_params:
+  fname: /Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/data/icemeltinterface/TIP4P/positions.extxyz
+  indices: ':'
+
+SOAP_params:
+  centers: [8]
+  neighbors: [1,8]
+  cutoff: 5
+  max_angular: 5
+  max_radial: 4
+
+plots: ["projection", "histogram"]
