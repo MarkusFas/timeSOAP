@@ -62,6 +62,7 @@ class PCA_obj:
             COV_2_reg = 0.5*(COV_2 + COV_2.T) + eps2*np.eye(COV_2.shape[0])
             try:
                 self.eigvals, self.eigvecs = eigh(COV_1_reg, COV_2_reg)
+                break
             except np.linalg.LinAlgError:
                 factor *= 10
 

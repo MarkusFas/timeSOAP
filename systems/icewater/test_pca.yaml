@@ -10,6 +10,7 @@ methods:
   - PCA
   - PCAfull
 
+
 input_params:
   fname: '/Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/data/icebox/icewater-long.xyz'
   indices: '::200'

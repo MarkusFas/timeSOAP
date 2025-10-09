@@ -1,7 +1,7 @@
 from ase.io.trajectory import Trajectory
 from itertools import chain
 
-from src.methods import PCA, IVAC, TempPCA, PCAfull
+from src.methods import PCA, IVAC, TempPCA, PCAfull, PCAtest
 from src.descriptors.SOAP import SOAP_descriptor
 from src.setup.simulation import run_simulation
 from src.setup.simulation_test import run_simulation_test
@@ -138,7 +138,7 @@ def setup_simulation(**kwargs):
     lag = kwargs.get('lag')
     opt_methods = kwargs.get('methods')
     opt_id = f'interval_{interval}_lag{lag}'
-    implemented_opt = ['PCA', 'PCAfull', 'IVAC', 'TEMPPCA']
+    implemented_opt = ['PCA', 'PCAfull', 'IVAC', 'TEMPPCA', 'PCAtest']
 
     system = kwargs["system"]
     version = kwargs["version"]
@@ -157,6 +157,8 @@ def setup_simulation(**kwargs):
             used_methods.append(TempPCA(descriptor, interval, run_labels[i]))
         elif method.upper() == 'PCAFULL':
             used_methods.append(PCAfull(descriptor, interval, run_labels[i]))
+        elif method.upper() == 'PCATEST':
+            used_methods.append(PCAtest(descriptor, interval, run_labels[i]))
         else:
             raise NotImplementedError(f"method must be one of {implemented_opt}, got {opt_methods}")
 
@@ -167,5 +169,5 @@ def setup_simulation(**kwargs):
     # Start simulation with the set inputs
 
     #TODO right strategy for passing kwargs downstream, e.g. methods
-    #run_simulation(traj, used_methods, run_ids, run_dirs, **kwargs)
-    run_simulation_test(traj, used_methods, run_ids, run_dirs, **kwargs)
+    run_simulation(traj, used_methods, run_ids, run_dirs, **kwargs)
+    #run_simulation_test(traj, used_methods, run_ids, run_dirs, **kwargs)

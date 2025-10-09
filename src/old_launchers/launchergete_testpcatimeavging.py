@@ -1,7 +1,6 @@
 from src.setup.read_data import read_trj, tamper_water_trj
-from src.old_scripts.descriptors import eval_SOAP, SOAP_COV, SOAP_COV_repair, SOAP_PCA, SOAP_COV_test, SOAP_COV_directPCAtest
+from src.old_scripts.descriptors import eval_SOAP, SOAP_COV, SOAP_COV_repair, SOAP_PCA, SOAP_COV_test, SOAP_COV_directPCAtest, SOAP_COV_directPCAtestfull
 from src.transformations.PCAtransform import pcatransform, PCA_obj
-from src.timeaverages import timeaverage
 from src.old_scripts.fourier import fourier_trafo
 from src.visualize import plot_pca, plot_pca_merge, plot_pca_height, plot_2pca, plot_compare_timeave_PCA, plot_compare_atoms_PCA
 import numpy as np
@@ -39,16 +38,16 @@ HYPER_PARAMETERS = {
 interval = 1
 if __name__=='__main__':
 
-    trj1, ids_atoms = read_trj(data)
-    trj2, ids_atoms2 = read_trj(data2)
+    trj1 = read_trj(data)
+    trj2 = read_trj(data2)
     trj = trj1 + trj2
     #trj = trj1
     #trj = tamper_water_trj(trj)
-    trj = trj[:10]
+    trj = trj[:100]
     color = np.array([atoms.positions[:,2] for atoms in trj]).T
     oxygen_atoms = [idx for idx, number in enumerate(trj[0].get_atomic_numbers()) if number==52] # only oxygen atoms
     shuffle(oxygen_atoms)
-    train_atoms = oxygen_atoms[:1] # take only 20 random atoms
+    train_atoms = oxygen_atoms[:2] # take only 20 random atoms
     test_atoms = oxygen_atoms[30:50] # take only 20 random atoms
     
     dir = f'results/GeTe/NEW/SOAP_PCA/temporalCOV_PCA'
@@ -67,7 +66,8 @@ if __name__=='__main__':
         ids_atoms = oxygen_atoms
         #height = np.array([atoms.positions[oxygen_atoms,2] for atoms in trj])
         #means, cov, atomsel_element = SOAP_COV_repair(trj, interval, ids_atoms, HYPER_PARAMETERS, centers, neighbors)
-        means, cov_i, cov_t, X_train, atomsel_element = SOAP_COV_directPCAtest(trj, interval, train_atoms, HYPER_PARAMETERS, centers, neighbors)
+        #means, cov_t, X_train, atomsel_element = SOAP_COV_directPCAtest(trj, interval, train_atoms, HYPER_PARAMETERS, centers, neighbors)
+        means, cov_i, cov_t, X_train, atomsel_element = SOAP_COV_directPCAtestfull(trj, interval, train_atoms, HYPER_PARAMETERS, centers, neighbors)
         for i, cov in enumerate(cov_t):
             #label = f'SOAP_PCA_repair_GeTe_{centers[i]}_updown_less_run_interval_{interval}_r{SOAP_cutoff}_maxang{SOAP_max_angular}_maxrad{SOAP_max_radial}'
             #label = f'SOAP_PCA_singleatoms_water_{centers[i]}_interval_{interval}_r{SOAP_cutoff}_maxang{SOAP_max_angular}_maxrad{SOAP_max_radial}'
@@ -75,6 +75,8 @@ if __name__=='__main__':
             # GEV 
             #pca_obj.compute_eigen_NEW(means[i], cov_t[i], cov_i[i])
             # temporal covariance only
+            #pca_obj.compute_eigen(means[i], cov_t[i])
+            #pca_obj.solve_GEV(means[i], cov_t[i], np.eye(len(cov_t[i])))
             pca_obj.compute_eigen(means[i], cov_t[i] + cov_i[i])
             # full covariance PCA
             #pca_obj.compute_eigen(means[i], cov[i])

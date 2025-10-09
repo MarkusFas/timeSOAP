@@ -50,7 +50,7 @@ class FullMethodBase(ABC):
 
         # Example: use PCA-based transformation
         self.transformations = [PCA_obj(n_components=4, label=self.label) for n in range(cov1.shape[0])]
-        
+
         for i, trafo in enumerate(self.transformations):
             trafo.solve_GEV(mean, cov1[i], cov2[i])
 

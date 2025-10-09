@@ -2,11 +2,12 @@ import numpy as np
 from tqdm import tqdm
 from pathlib import Path
 import os
-from random import shuffle
+import random 
 
 from src.plots.timeseries import plot_projection_atoms, plot_projection_atoms_models
 from src.plots.histograms import plot_2pca
 
+random.seed(7)
 def run_simulation_test(trj, used_methods, run_ids, run_dirs, **kwargs):
 
     pca=[]
@@ -18,12 +19,12 @@ def run_simulation_test(trj, used_methods, run_ids, run_dirs, **kwargs):
         label = os.path.join(run_dir, label)
 
         selected_atoms = [idx for idx, number in enumerate(trj[0].get_atomic_numbers()) if number==method.descriptor.centers[0]]
-        shuffle(selected_atoms) 
+        random.shuffle(selected_atoms, seed=1) 
         N_train = kwargs.get('train_selected_atoms')
         N_test = kwargs.get('test_selected_atoms')
         train_atoms = selected_atoms[:N_train]
         test_atoms = selected_atoms[N_train: N_train + N_test]
-
+        
         # train our method by specifying the selected atoms
         method.train(trj, train_atoms)
 
@@ -33,7 +34,7 @@ def run_simulation_test(trj, used_methods, run_ids, run_dirs, **kwargs):
         
         pca.append(method.transformations[0].eigvecs)
         #4 Post processing
-    
+
     print(pca[0] - pca[1])
 
 if __name__ == '__main__':
