@@ -68,6 +68,7 @@ class TempPCA(FullMethodBase):
                 # the buffer contains data from fidx-maxlag to fidx. add a forward ACF
                 avg_soap = np.einsum("j,ija->ia", roll_kernel, buffer) #smoothen
                 for atom_type_idx, atom_type in enumerate(self.atomsel_element):
+                    # Calculate the mean over atoms
                     mu_t = avg_soap[atom_type].mean(axis=0)
                     scatter_mut[atom_type_idx] += np.einsum(
                         "a,b->ab", 
@@ -104,4 +105,4 @@ class TempPCA(FullMethodBase):
         self.mean_cov_t = mean_cov_t
         self.cov_mu_t = cov_mu_t
         
-        return mean_mu_t, mean_cov_t, cov_mu_t
+        return mean_mu_t, cov_mu_t, mean_cov_t 

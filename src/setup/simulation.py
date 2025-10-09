@@ -28,6 +28,20 @@ def run_simulation(trj, used_methods, run_ids, run_dirs, **kwargs):
         # train our method by specifying the selected atoms
         method.train(trj, train_atoms)
 
+        metrics = np.array([np.trace(method.mean_cov_t[0]),
+                    np.trace(method.cov_mu_t[0])])
+        header = ["spatialCov", "tempCov"]
+
+        # Make metrics a 2D row vector: shape (1, 2)
+        np.savetxt(
+            label + "_.csv",
+            metrics.reshape(1, -1),
+            fmt="%.6f",
+            delimiter="\t",
+            header="\t".join(header),
+            comments=""
+        )
+            
         # get predictions with the new representation
         X = method.predict(trj, test_atoms) ##centers T,N,P
         X = [proj.transpose(1,0,2) for proj in X]
