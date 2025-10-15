@@ -12,6 +12,7 @@ DEFAULT_PARAMS = {
     "input_params": {
         "fname": None,
         "indices": ":",
+        "concatenate": True,
     },
 
     "descriptor": "SOAP",

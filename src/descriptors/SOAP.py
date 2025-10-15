@@ -12,8 +12,23 @@ from memory_profiler import profile
 
 
 class SOAP_descriptor():
-    def __init__(self, HYPERS, centers, neighbors, selected_atoms=None):
-        self.calculator = SoapPowerSpectrum(**HYPERS)
+    def __init__(self, cutoff, max_angular, max_radial, centers, neighbors, selected_atoms=None):
+        HYPER_PARAMETERS = {
+            "cutoff": {
+                "radius": cutoff, #4 #5 #6
+                "smoothing": {"type": "ShiftedCosine", "width": 0.5},
+            },
+            "density": {
+                "type": "Gaussian",
+                "width": 0.25, #changed from 0.3
+            },
+            "basis": {
+                "type": "TensorProduct",
+                "max_angular": max_angular, #8
+                "radial": {"type": "Gto", "max_radial": max_radial}, #6
+            },
+        }
+        self.calculator = SoapPowerSpectrum(**HYPER_PARAMETERS)
         self.centers = centers
         self.neighbors = neighbors
         self.sel_keys = Labels(
@@ -21,7 +36,8 @@ class SOAP_descriptor():
             values=torch.tensor([[i,j,k] for i in centers for j in neighbors for k in neighbors if j <=
                 k], dtype=torch.int32),
         )
-
+        self.id = f"SOAP_{cutoff}{max_angular}{max_radial}_{centers}"
+        
         self.sel_samples = None
         #TODO default to all atoms in the trajectory
 

@@ -1,3 +1,5 @@
+import os 
+
 from ase.io.trajectory import Trajectory
 from itertools import chain
 
@@ -6,6 +8,7 @@ from src.descriptors.SOAP import SOAP_descriptor
 from src.setup.simulation import run_simulation
 from src.setup.simulation_test import run_simulation_test
 from src.setup.read_data import read_trj
+
 
 def check_file_input(**kwargs):
     fnames = kwargs["fname"]
@@ -29,14 +32,24 @@ def check_file_input(**kwargs):
 
     return fnames, indices
 
-def check_analysis_inputs(traj, **kwargs):
+
+def check_analysis_inputs(trajs, **kwargs):
     if not isinstance(kwargs['lag'], int):
         raise TypeError("lag must be an integer")
 
-    if not isinstance(kwargs['interval'], int):
-        raise TypeError("interval must be an integer")
+    intervals = kwargs["interval"]
 
-    if kwargs['lag'] > kwargs['interval']:
+    if isinstance(intervals, int):
+        #TODO if intervals > len(trajs)
+        kwargs['interval'] = [intervals]
+    elif isinstance(intervals, list):
+        if not all(isinstance(i, int) for i in intervals):
+            raise TypeError("all elements of 'interval' list must be integers")
+    else:
+        raise TypeError("interval must be an integer or list of integers")
+
+    # TODO extend for multiple lags being accepted
+    if any(kwargs['lag'] > interval for interval in kwargs['interval']):
         raise ValueError("lag cannot be larger than interval length")
 
 
@@ -46,7 +59,7 @@ def check_analysis_inputs(traj, **kwargs):
     else:
         if not all(isinstance(x, int) for x in kwargs['train_selected_atoms']):
             raise TypeError("All elements of train_selected_atoms must be integers")
-        if not all(atoms_idx in traj[0].index for atoms_idx in kwargs['train_selected_atoms']):
+        if not all(atoms_idx < len(traj[0]) for atoms_idx in kwargs['train_selected_atoms'] for traj in trajs):
             raise ValueError(" Some of the selected atoms are not in the traj")
         
     if not isinstance(kwargs['test_selected_atoms'], list):
@@ -55,9 +68,8 @@ def check_analysis_inputs(traj, **kwargs):
     else:
         if not all(isinstance(x, int) for x in kwargs['test_selected_atoms']):
             raise TypeError("All elements of test_selected_atoms must be integers")
-        if not all(atoms_idx in traj[0].index for atoms_idx in kwargs['test_selected_atoms']):
+        if not all(atoms_idx < len(traj[0]) for atoms_idx in kwargs['test_selected_atoms'] for traj in trajs):
             raise ValueError(" Some of the selected atoms are not in the traj")
-
 
     if isinstance(kwargs['train_selected_atoms'], list) and isinstance(kwargs['test_selected_atoms'], list):
         if set(kwargs['train_selected_atoms']) & set(kwargs['test_selected_atoms']):
@@ -71,7 +83,7 @@ def check_analysis_inputs(traj, **kwargs):
     return kwargs
 
 
-def check_SOAP_inputs(traj, **kwargs):
+def check_SOAP_inputs(trajs, **kwargs):
     required = ["centers", "neighbors", "cutoff", "max_angular", "max_radial"]
     for key in required:
         if key not in kwargs:
@@ -85,10 +97,10 @@ def check_SOAP_inputs(traj, **kwargs):
     if not isinstance(kwargs["max_radial"], int) or kwargs["max_radial"] <= 0:
         raise ValueError("max_radial must be a positive integer")
     for center in kwargs["centers"]:
-        if not center in traj[0].get_atomic_numbers():
+        if not all(center in traj[0].get_atomic_numbers() for traj in trajs):
             raise ValueError(f"Center {center} is not in the atomic types of the trajectory.")
     for neighbor in kwargs["neighbors"]:
-        if not center in traj[0].get_atomic_numbers():
+        if not all(center in traj[0].get_atomic_numbers() for traj in trajs):
             raise ValueError(f"Neighbor {neighbor} is not in the atomic types of the trajectory.")
         
     return kwargs
@@ -99,75 +111,67 @@ def setup_simulation(**kwargs):
     #1 check trajectory
     fnames, indices = check_file_input(**kwargs["input_params"])
     trajs = [read_trj(fname, indices[i]) for i, fname in enumerate(fnames)]
-    traj = list(chain(*trajs))
+
+    positive_keys = ["true", "yes"]
+    negative_keys = ["false", "no"]
+    if kwargs["input_params"].get('concatenate'):
+        trajs = [list(chain(*trajs))]
+    elif not kwargs["input_params"].get('concatenate'):
+        pass
+    else:
+        raise TypeError('concatenate, needs to be either true or false')
 
     #2 check descriptor
     descriptor_name = kwargs['descriptor']
     if descriptor_name == 'SOAP':
-        SOAP_kwargs = check_SOAP_inputs(traj, **kwargs["SOAP_params"])
+        SOAP_kwargs = check_SOAP_inputs(trajs, **kwargs["SOAP_params"])
         centers = SOAP_kwargs.get('centers')
         neighbors = SOAP_kwargs.get('neighbors')
         SOAP_cutoff = SOAP_kwargs.get('cutoff')
         SOAP_max_angular = SOAP_kwargs.get('max_angular')
         SOAP_max_radial = SOAP_kwargs.get('max_radial')
-        descriptor_id = f"SOAP_{SOAP_cutoff}{SOAP_max_angular}{SOAP_max_radial}_{centers}"
-        HYPER_PARAMETERS = {
-            "cutoff": {
-                "radius": SOAP_cutoff, #4 #5 #6
-                "smoothing": {"type": "ShiftedCosine", "width": 0.5},
-            },
-            "density": {
-                "type": "Gaussian",
-                "width": 0.25, #changed from 0.3
-            },
-            "basis": {
-                "type": "TensorProduct",
-                "max_angular": SOAP_max_angular, #8
-                "radial": {"type": "Gto", "max_radial": SOAP_max_radial}, #6
-            },
-        }
-        descriptor = SOAP_descriptor(HYPER_PARAMETERS, centers, neighbors)
+        descriptor_id = f"{SOAP_cutoff}{SOAP_max_angular}{SOAP_max_radial}"
+        
+        descriptor = SOAP_descriptor(SOAP_cutoff, SOAP_max_angular, SOAP_max_radial, centers, neighbors)
     else:
         raise NotImplementedError(f"{descriptor} has not been implemented yet.")
     
-
     #3 Check Analysis
-    kwargs = check_analysis_inputs(traj, **kwargs)
+    kwargs = check_analysis_inputs(trajs, **kwargs)
     
-    interval = kwargs.get('interval')
-    lag = kwargs.get('lag')
-    opt_methods = kwargs.get('methods')
-    opt_id = f'interval_{interval}_lag{lag}'
+    opt_methods = kwargs.get('methods')  # list of methods
     implemented_opt = ['PCA', 'PCAfull', 'IVAC', 'TEMPPCA', 'PCAtest']
 
     system = kwargs["system"]
     version = kwargs["version"]
     specifier = kwargs["specifier"]
-    run_dirs = [f'results/{system}/{version}/{descriptor_name}/{method}/{specifier}' for method in opt_methods]
-    run_ids = [method + '_' + opt_id + '_' + descriptor_id for method in opt_methods]
-    run_labels = [dir + id for dir, id in zip(run_dirs, run_ids)]
-    used_methods = []
 
-    for i, method in enumerate(opt_methods):
-        if method.upper() == 'PCA':
-            used_methods.append(PCA(descriptor, interval, run_labels[i]))
-        elif method.upper() == 'IVAC':
-            raise NotImplementedError('Ivac implemteation coming soon')
-        elif method.upper() == 'TEMPPCA':
-            used_methods.append(TempPCA(descriptor, interval, run_labels[i]))
-        elif method.upper() == 'PCAFULL':
-            used_methods.append(PCAfull(descriptor, interval, run_labels[i]))
-        elif method.upper() == 'PCATEST':
-            used_methods.append(PCAtest(descriptor, interval, run_labels[i]))
-        else:
-            raise NotImplementedError(f"method must be one of {implemented_opt}, got {opt_methods}")
+    methods_intervals = []  # nested list: intervals x methods
 
+    for interval in kwargs.get('interval'):
+        used_methods = []
+        for method in opt_methods:
+            run_dir = f'results/{system}/{version}/{kwargs.get("descriptor")}/{descriptor_id}/{specifier}/'
+            
+            # Instantiate method
+            method_obj = None
+            if method.upper() == 'PCA':
+                method_obj = PCA(descriptor, interval, run_dir)
+            elif method.upper() == 'IVAC':
+                raise NotImplementedError('IVAC implementation coming soon')
+            elif method.upper() == 'TEMPPCA':
+                method_obj = TempPCA(descriptor, interval, run_dir)
+            elif method.upper() == 'PCAFULL':
+                method_obj = PCAfull(descriptor, interval, run_dir)
+            elif method.upper() == 'PCATEST':
+                method_obj = PCAtest(descriptor, interval, run_dir)
+            else:
+                raise NotImplementedError(f"Method must be one of {implemented_opt}, got {method}")
+
+            used_methods.append(method_obj)
+        methods_intervals.append(used_methods)
+
+    # TODO: check requested plots
     
-    #4 Check Post Processing
-    # TODO check in kwargs which output plots etc are requested and should be computed
-    
-    # Start simulation with the set inputs
-
-    #TODO right strategy for passing kwargs downstream, e.g. methods
-    run_simulation(traj, used_methods, run_ids, run_dirs, **kwargs)
-    #run_simulation_test(traj, used_methods, run_ids, run_dirs, **kwargs)
+    # Pass nested lists to run_simulation
+    run_simulation(trajs, methods_intervals, **kwargs)

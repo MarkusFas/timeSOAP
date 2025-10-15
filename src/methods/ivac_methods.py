@@ -14,6 +14,7 @@ from memory_profiler import profile
 from src.transformations.PCAtransform import PCA_obj
 from src.methods.BaseMethod import FullMethodBase
 
+#TODO : add lag to self.label
 class IVAC(FullMethodBase):
 
     def compute_COV(self, traj):

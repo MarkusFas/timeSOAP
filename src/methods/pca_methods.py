@@ -16,9 +16,11 @@ from src.methods.BaseMethod import FullMethodBase
 
 class PCA(FullMethodBase):
 
-    def __init__(self, descriptor, interval, label):
-        super().__init__(descriptor, interval, lag=0, label=label)
+    def __init__(self, descriptor, interval, root):
+        self.name = 'PCA'
+        super().__init__(descriptor, interval, lag=0, root=root, method=self.name)
         
+
     def compute_COV(self, traj):
         """
         Compute time-averaged SOAP covariance matrices for each atomic species.
@@ -110,8 +112,9 @@ class PCA(FullMethodBase):
 
 class PCAtest(FullMethodBase):
 
-    def __init__(self, descriptor, interval, label):
-        super().__init__(descriptor, interval, lag=0, label=label)
+    def __init__(self, descriptor, interval, root):
+        self.name = 'PCAtest'
+        super().__init__(descriptor, interval, lag=0, root=root, method=self.name)
         
     def compute_COV(self, traj):
         """
@@ -205,9 +208,11 @@ class PCAtest(FullMethodBase):
 
 class PCAfull(FullMethodBase):
 
-    def __init__(self, descriptor, interval, label):
-        super().__init__(descriptor, interval, lag=0, label=label)
+    def __init__(self, descriptor, interval, root):
+        self.name = 'PCAfull'
+        super().__init__(descriptor, interval, lag=0, root=root, method=self.name)
         
+
     def compute_COV(self, traj):
         """
         Compute time-averaged SOAP covariance matrices for each atomic species.

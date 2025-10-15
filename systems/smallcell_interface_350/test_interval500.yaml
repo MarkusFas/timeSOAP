@@ -2,7 +2,7 @@
 
 system: interface_melting
 specifier: 
-interval: 100
+interval: 500
 lag: 0
 train_selected_atoms: 30
 test_selected_atoms: 20

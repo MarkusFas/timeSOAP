@@ -24,24 +24,25 @@ def merge_params(defaults, updates, path="root"):
 
 if __name__ == "__main__":
     #input_file = 'systems/icewater/test_interval1.yaml'
-    input_file = 'systems/smallcell_interface_350/test_interval1.yaml'
+    #input_file = 'systems/cycloAE/test_sep_tests.yaml'
+    input_file = 'systems/ice_water_sep/test_interval1.yaml'
+    #input_file = 'systems/icewater/test_interval1.yaml'
     user_cfg = load_config(input_file)
     params = merge_params(DEFAULT_PARAMS, user_cfg, input_file)
     setup_simulation(**params)
 
     exit()
-    input_file = 'systems/smallcell_interface_350/test_interval100.yaml'
+    input_file = 'systems/icewater/test_interval50.yaml'
     user_cfg = load_config(input_file)
     params = merge_params(DEFAULT_PARAMS, user_cfg, input_file)
     setup_simulation(**params)
 
-    input_file = 'systems/smallcell_interface_350/test_interval500.yaml'
+    input_file = 'systems/icewater/test_interval100.yaml'
     user_cfg = load_config(input_file)
     params = merge_params(DEFAULT_PARAMS, user_cfg, input_file)
     setup_simulation(**params)
 
-    exit()
-    input_file = 'systems/icewater/test_interval500.yaml'
+    input_file = 'systems/icewater/test_interval250.yaml'
     user_cfg = load_config(input_file)
     params = merge_params(DEFAULT_PARAMS, user_cfg, input_file)
     setup_simulation(**params)

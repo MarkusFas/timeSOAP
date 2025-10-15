@@ -1,3 +1,5 @@
+import os 
+
 import torch 
 from abc import ABC, abstractmethod
 import metatensor.torch as mts
@@ -10,6 +12,7 @@ from scipy.ndimage import gaussian_filter
 import ase.neighborlist
 from vesin import ase_neighbor_list
 from memory_profiler import profile
+from pathlib import Path
 
 from src.transformations.PCAtransform import PCA_obj
 
@@ -23,17 +26,23 @@ class FullMethodBase(ABC):
     the descriptor-specific covariance computation in `compute_COV()`.
     """
 
-    def __init__(self, descriptor, interval, lag, label):
+    def __init__(self, descriptor, interval, lag, root, method=None):
         self.interval = interval
         self.lag = lag
-        self.label = label
+        self.root = os.path.join(root, method)
         self.descriptor = descriptor
         self.transformations = None
-
+        label = os.path.join(
+            self.root,
+            f'interval_{self.interval}',
+            f'lag_{self.lag}',
+        )
+        Path(label).mkdir(parents=True, exist_ok=True)
+        self.label = os.path.join(label, self.descriptor.id)
     # ------------------------------------------------------------------
     # Shared methods
     # ------------------------------------------------------------------
-    def train(self, traj, selected_atoms):
+    def train(self, trajs, selected_atoms):
         """
         Train the method using a molecular dynamics trajectory.
 
@@ -46,12 +55,25 @@ class FullMethodBase(ABC):
         """
         self.selected_atoms = selected_atoms
         self.descriptor.set_samples(selected_atoms)
-        mean, cov1, cov2 = self.compute_COV(traj)
+
+        traj_means = []
+        traj_cov1 = []
+        traj_cov2 = []
+        for traj in trajs:
+            mean, cov1, cov2 = self.compute_COV(traj)
+            traj_means.append(mean)
+            traj_cov1.append(cov1)
+            traj_cov2.append(cov2)
+        
+        #combine trajectories:
+        self.mean = np.mean(traj_means, axis=0)
+        self.cov1 = np.mean(traj_cov1, axis=0)
+        self.cov2 = np.mean(traj_cov2, axis=0)
         # Example: use PCA-based transformation
         self.transformations = [PCA_obj(n_components=4, label=self.label) for n in range(cov1.shape[0])]
 
         for i, trafo in enumerate(self.transformations):
-            trafo.solve_GEV(mean[i], cov1[i], cov2[i])
+            trafo.solve_GEV(self.mean[i], self.cov1[i], self.cov2[i])
 
 
     def predict(self, traj, selected_atoms):
@@ -129,3 +151,4 @@ class FullMethodBase(ABC):
         empty
         """
         pass
+

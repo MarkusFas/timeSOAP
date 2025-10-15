@@ -1,0 +1,26 @@
+# systems/icewater/test.yaml
+
+system: cycloAE
+specifier: first
+interval: 1
+lag: 0
+train_selected_atoms: 1
+test_selected_atoms: 1
+methods: 
+  - TempPCA
+  - PCAfull
+
+input_params:
+  fname: 
+    - /Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/data/cyclo/prodA.pdb
+    - /Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/data/cyclo/prodE.pdb
+  indices: ':25'
+  concatenate: True
+SOAP_params:
+  centers: [6]
+  neighbors: [1,6,7,8]
+  cutoff: 5
+  max_angular: 5
+  max_radial: 6
+
+plots: ["projection", "histogram"]
