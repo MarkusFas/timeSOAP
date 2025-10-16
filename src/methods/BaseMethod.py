@@ -131,9 +131,21 @@ class FullMethodBase(ABC):
 
         return projected_per_type  # shape: (#centers ,N_atoms, T, latent_dim)
 
+
+    def spatial_averaging(self, system):
+        # uses a paramter radius and or type that should be set by the constructor
+        # it will average over atoms. Theoretically
+        # will time averaging not create highly correlated samples? 
+        # Is this good?
+        # analogous: just averaging atoms information with a blob
+        # else: make a discrete grid and create those pseudoparticles that
+        # will make up the new system, more like coarse graining
+        pass
     # ------------------------------------------------------------------
     # Abstract — subclasses must implement this
     # ------------------------------------------------------------------
+    
+    
     @abstractmethod
     def compute_COV(self, traj):
         """
