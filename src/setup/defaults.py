@@ -5,6 +5,9 @@ DEFAULT_PARAMS = {
 
     "interval": 100,
     "lag": 0,
+    "max_lag": 1000,
+    "min_lag": 100,
+    "lag_step": 20,
     "methods": "PCA",
     "train_selected_atoms": 1,
     "test_selected_atoms": 1,

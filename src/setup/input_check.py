@@ -3,7 +3,7 @@ import os
 from ase.io.trajectory import Trajectory
 from itertools import chain
 
-from src.methods import PCA, IVAC, TempPCA, PCAfull, PCAtest
+from src.methods import PCA, IVAC, TICA, TempPCA, PCAfull, PCAtest, LDA
 from src.descriptors.SOAP import SOAP_descriptor
 from src.setup.simulation import run_simulation
 from src.setup.simulation_test import run_simulation_test
@@ -48,11 +48,7 @@ def check_analysis_inputs(trajs, **kwargs):
     else:
         raise TypeError("interval must be an integer or list of integers")
 
-    # TODO extend for multiple lags being accepted
-    if any(kwargs['lag'] > interval for interval in kwargs['interval']):
-        raise ValueError("lag cannot be larger than interval length")
-
-
+    
     if not isinstance(kwargs['train_selected_atoms'], list):
         if not isinstance(kwargs['train_selected_atoms'], int):
             raise TypeError("train_selected_atoms must be integer or list of integers")
@@ -111,7 +107,6 @@ def setup_simulation(**kwargs):
     #1 check trajectory
     fnames, indices = check_file_input(**kwargs["input_params"])
     trajs = [read_trj(fname, indices[i]) for i, fname in enumerate(fnames)]
-
     positive_keys = ["true", "yes"]
     negative_keys = ["false", "no"]
     if kwargs["input_params"].get('concatenate'):
@@ -140,14 +135,14 @@ def setup_simulation(**kwargs):
     kwargs = check_analysis_inputs(trajs, **kwargs)
     
     opt_methods = kwargs.get('methods')  # list of methods
-    implemented_opt = ['PCA', 'PCAfull', 'IVAC', 'TEMPPCA', 'PCAtest']
+    implemented_opt = ['PCA', 'PCAfull', 'TICA', 'TEMPPCA', 'PCAtest', "LDA"]
 
     system = kwargs["system"]
     version = kwargs["version"]
     specifier = kwargs["specifier"]
 
     methods_intervals = []  # nested list: intervals x methods
-
+    lag = kwargs.get("lag")
     for interval in kwargs.get('interval'):
         used_methods = []
         for method in opt_methods:
@@ -158,13 +153,22 @@ def setup_simulation(**kwargs):
             if method.upper() == 'PCA':
                 method_obj = PCA(descriptor, interval, run_dir)
             elif method.upper() == 'IVAC':
-                raise NotImplementedError('IVAC implementation coming soon')
+                #TODO: input checks for the lag parameters
+                max_lag = kwargs.get("max_lag")
+                min_lag = kwargs.get("min_lag")
+                lag_step = kwargs.get("lag_step")
+                method_obj = IVAC(descriptor, interval, max_lag, min_lag, lag_step, run_dir)
             elif method.upper() == 'TEMPPCA':
                 method_obj = TempPCA(descriptor, interval, run_dir)
             elif method.upper() == 'PCAFULL':
                 method_obj = PCAfull(descriptor, interval, run_dir)
             elif method.upper() == 'PCATEST':
                 method_obj = PCAtest(descriptor, interval, run_dir)
+            elif method.upper() == 'LDA':
+                method_obj = LDA(descriptor, interval, run_dir)
+            elif method.upper() == 'TICA':
+                method_obj = TICA(descriptor, interval, lag, run_dir)
+            
             else:
                 raise NotImplementedError(f"Method must be one of {implemented_opt}, got {method}")
 

@@ -59,16 +59,37 @@ class FullMethodBase(ABC):
         traj_means = []
         traj_cov1 = []
         traj_cov2 = []
+        traj_N = []
         for traj in trajs:
             mean, cov1, cov2 = self.compute_COV(traj)
             traj_means.append(mean)
             traj_cov1.append(cov1)
             traj_cov2.append(cov2)
+            traj_N.append(len(traj))
         
         #combine trajectories:
+        total_N = np.sum(traj_N)
         self.mean = np.mean(traj_means, axis=0)
-        self.cov1 = np.mean(traj_cov1, axis=0)
-        self.cov2 = np.mean(traj_cov2, axis=0)
+        
+        # Compute within-class covariance (average of per-trajectory covariances)
+        class_cov1 = np.mean(traj_cov1, axis=0)
+        class_cov2 = np.mean(traj_cov2, axis=0)
+
+        # Compute between-class covariance (mean shifts)
+        between_cov1 = sum(
+            traj_N[i] * np.einsum('ci,cj->cij',class_mean - self.mean, class_mean - self.mean)
+            for i, class_mean in enumerate(traj_means)
+        ) / total_N
+
+        between_cov2 = sum(
+            traj_N[i] * np.einsum('ci,cj->cij',class_mean - self.mean, class_mean - self.mean)
+            for i, class_mean in enumerate(traj_means)
+        ) / total_N
+
+        # Combine both parts
+        self.cov1 = class_cov1 + between_cov1
+        self.cov2 = class_cov2 + between_cov2
+
         # Example: use PCA-based transformation
         self.transformations = [PCA_obj(n_components=4, label=self.label) for n in range(cov1.shape[0])]
 

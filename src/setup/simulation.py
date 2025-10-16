@@ -12,10 +12,10 @@ from src.plots.histograms import plot_2pca
 
 
 def run_simulation(trj, methods_intervals, **kwargs):
-    print(np.shape(trj))
-    if len(np.shape(trj)) == 2:
+    
+    if not isinstance(trj[0], list):
         trj = [trj]
-    print(np.shape(trj))
+    
     for i, methods in tqdm(enumerate(methods_intervals), desc="looping through intervals"):
         for j, method in tqdm(enumerate(methods), desc="looping through methods"):
             random.seed(7)
