@@ -215,23 +215,16 @@ class IVAC(FullMethodBase):
                 soap_0 = buffer_t[:,fidx%self.max_lag,:]
                 soap_lags = [buffer_t[:,(fidx+lag)%self.max_lag,:] for lag in lags]
                 for atom_type_idx, atom_type in enumerate(self.atomsel_element):
-                    sum_soaps_corr[atom_type_idx] += soap_0[atom_type].sum(axis=0)
-                    delta_soap_0 = soap_0_mu[atom_type_idx] - soap_0[atom_type]  
-                    #TODO: think about mean here, change if statement
-                    if fidx == self.interval + self.max_lag + 1:
-                        soap_0_mu[atom_type_idx] += delta_soap_0.mean(axis=0)
-                    else:
-                        soap_0_mu[atom_type_idx] += delta_soap_0.mean(axis=0) / ntimesteps_corr[atom_type_idx]
-                    for i, soap_lag in enumerate(soap_lags):
-                        delta_soap_lag[i] = soap_lag_mu[atom_type_idx, i] - soap_lag[atom_type]
-                        #TODO: think about mean here
-                        if fidx == self.interval + self.max_lag + 1:
-                            soap_lag_mu[atom_type_idx, i] += delta_soap_lag[i].mean(axis=0)
-                        else:
-                            soap_lag_mu[atom_type_idx, i] += delta_soap_lag[i].mean(axis=0) / ntimesteps_corr[atom_type_idx]
-                        corr_t[atom_type_idx] += np.einsum("ia,ib->ab", delta_soap_0, delta_soap_lag[i]) #sum over all same atoms (have already summed over all times before) 
                     nsmp_corr[atom_type_idx] += len(atom_type)
                     ntimesteps_corr[atom_type_idx] += 1
+                    sum_soaps_corr[atom_type_idx] += soap_0[atom_type].sum(axis=0)
+                    delta_soap_0 = soap_0[atom_type] - soap_0_mu[atom_type_idx]  
+                    soap_0_mu[atom_type_idx] += delta_soap_0.mean(axis=0) / ntimesteps_corr[atom_type_idx]
+                    #TODO: test for only one
+                    for i, soap_lag in enumerate(soap_lags[:1]):
+                        delta_soap_lag[i] = soap_lag[atom_type] - soap_lag_mu[atom_type_idx, i]
+                        soap_lag_mu[atom_type_idx, i] += delta_soap_lag[i].mean(axis=0) / ntimesteps_corr[atom_type_idx]
+                        corr_t[atom_type_idx] += np.einsum("ia,ib->ab", delta_soap_0, delta_soap_lag[i]) #sum over all same atoms (have already summed over all times before) 
 
             buffer[:,fidx%self.interval,:] = new_soap_values
             if fidx >= self.interval:
@@ -256,7 +249,7 @@ class IVAC(FullMethodBase):
         self.corr = corr
         self.mu = mu
         self.mu_corr = mu_corr
-        return mu, corr, cov
+        return soap_lag_mu.mean(axis=1), corr, cov
 
     def log_metrics(self):
             """
