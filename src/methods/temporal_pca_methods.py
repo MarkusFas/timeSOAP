@@ -18,7 +18,7 @@ class TempPCA(FullMethodBase):
 
     def __init__(self, descriptor, interval, root):
         self.name = "TempPCA"
-        super().__init__(descriptor, interval, lag=0, root=root, method=self.name)
+        super().__init__(descriptor, interval, lag=0, root=root, sigma=0, method=self.name)
         
 
     def compute_COV(self, traj):

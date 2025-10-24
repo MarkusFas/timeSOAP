@@ -1,5 +1,6 @@
 import os 
-
+import numpy as np
+from vesin import NeighborList
 import torch 
 from abc import ABC, abstractmethod
 import metatensor.torch as mts
@@ -26,9 +27,10 @@ class FullMethodBase(ABC):
     the descriptor-specific covariance computation in `compute_COV()`.
     """
 
-    def __init__(self, descriptor, interval, lag, root, method=None):
+    def __init__(self, descriptor, interval, lag, sigma, root, method=None):
         self.interval = interval
         self.lag = lag
+        self.sigma = sigma
         self.root = os.path.join(root, method)
         self.descriptor = descriptor
         self.transformations = None
@@ -36,6 +38,7 @@ class FullMethodBase(ABC):
             self.root,
             f'interval_{self.interval}',
             f'lag_{self.lag}',
+            f'sigma_{self.sigma}',
         )
         Path(label).mkdir(parents=True, exist_ok=True)
         self.label = os.path.join(label, self.descriptor.id)
@@ -132,20 +135,137 @@ class FullMethodBase(ABC):
         return projected_per_type  # shape: (#centers ,N_atoms, T, latent_dim)
 
 
-    def spatial_averaging(self, system):
-        # uses a paramter radius and or type that should be set by the constructor
-        # it will average over atoms. Theoretically
-        # will time averaging not create highly correlated samples? 
-        # Is this good?
-        # analogous: just averaging atoms information with a blob
-        # else: make a discrete grid and create those pseudoparticles that
-        # will make up the new system, more like coarse graining
-        pass
-    # ------------------------------------------------------------------
-    # Abstract — subclasses must implement this
-    # ------------------------------------------------------------------
-    
-    
+    def spatial_averaging(self, system, features, sigma):
+
+        # get neighborlist (but not full, only for selected atoms)
+        #TODO: dont know what happens if centers and selectedatoms dont align here, then it 
+        # selects the wrong atom position here. Check SOAP samples & centers and order of SOAP feature
+        # and compare to order of positions
+        points = system.positions[self.selected_atoms]
+        calculator = NeighborList(cutoff=5.0, full_list=True)
+        i, j, S, d = calculator.compute(
+            points=points,
+            box=system.cell,
+            periodic=True,
+            quantities="ijSd"
+        )
+        i = i.astype(np.int64)
+        j = j.astype(np.int64)
+        d = d.astype(np.float64)
+        # get distance 
+        w = np.exp(-d**2 / (2*sigma**2), dtype=np.float64)     # pairwise weights
+        # add self-weight term separately later
+        self_weight = 1.0
+        h = np.zeros_like(features)             # (N_atoms, n_features)
+        np.add.at(h, i, w[:, None] * features[j])
+
+        h += self_weight * features
+
+        # get calculate the gaussian weight
+
+        # normalize vs all 
+
+        # return the averaged features 
+        return h, cov
+        
+
+
+    def full_spatial_averaging(self, system, features, sigma):
+
+        # get neighborlist (but not full, only for selected atoms)
+        #TODO: dont know what happens if centers and selectedatoms dont align here, then it 
+        # selects the wrong atom position here. Check SOAP samples & centers and order of SOAP feature
+        # and compare to order of positions
+        points = system.positions[self.selected_atoms]
+        calculator = NeighborList(cutoff=5.0, full_list=True)
+        i, j, S, d = calculator.compute(
+            points=points,
+            box=system.cell,
+            periodic=True,
+            quantities="ijSd"
+        )
+        i = i.astype(np.int64)
+        j = j.astype(np.int64)
+        d = d.astype(np.float64)
+        # get distance 
+        w = np.exp(-d**2 / (2*sigma**2), dtype=np.float64)     # pairwise weights
+        #
+        N, D = features.shape
+        n_pairs = len(w)
+
+        # Per-cluster sums
+        sum_w  = np.zeros(N)
+        sum_x  = np.zeros((N, D))
+        sum_xx = np.zeros((N, D, D))
+
+        # Weighted sums
+        np.add.at(sum_w, i, w) #sums of the weights
+        np.add.at(sum_x, i, w[:, None] * features[j])
+        
+        for k in range(n_pairs):
+            sum_xx[i[k]] += w[k] * np.outer(features[j[k]], features[j[k]])
+        
+        # Add self-term
+        self_weight = 1.0
+        sum_w += self_weight
+        sum_x += self_weight * features
+        sum_xx += self_weight * np.einsum('ni,nj->nij', features, features)
+       
+        # Compute per-cluster means
+        means = sum_x / sum_w[:, None]
+
+        # Compute per-cluster covariances
+        covs = sum_xx / sum_w[:, None, None] - np.einsum('ni,nj->nij', means, means)
+
+        #COMPUTE COVARIANCES
+        Wtot = sum_w.sum()
+        mu_global = (sum_w[:, None] * means).sum(axis=0) / Wtot
+
+        # within-cluster weighted covariance
+        S_within = (sum_w[:, None, None] * covs).sum(axis=0) / Wtot
+
+        # between-cluster covariance
+        diff = means - mu_global
+        S_between = (sum_w[:, None, None] * np.einsum('ni,nj->nij', diff, diff)).sum(axis=0) / Wtot
+
+        return S_within, S_between
+        
+
+
+
+    def grid_spatial_averaging(self, system, features, sigma):
+
+        # get neighborlist (but not full, only for selected atoms)
+        #TODO: dont know what happens if centers and selectedatoms dont align here, then it 
+        # selects the wrong atom position here. Check SOAP samples & centers and order of SOAP feature
+        # and compare to order of positions
+        points = system.positions[self.selected_atoms]
+        calculator = NeighborList(cutoff=5.0, full_list=True)
+        i, j, S, d = calculator.compute(
+            points=points,
+            box=system.cell,
+            periodic=True,
+            quantities="ijSd"
+        )
+        i = i.astype(np.int64)
+        j = j.astype(np.int64)
+        d = d.astype(np.float64)
+        # get distance 
+        w = np.exp(-d**2 / (2*sigma**2), dtype=np.float64)     # pairwise weights
+        # add self-weight term separately later
+        self_weight = 1.0
+        h = np.zeros_like(features)             # (N_atoms, n_features)
+        np.add.at(h, i, w[:, None] * features[j])
+
+        h += self_weight * features
+        
+        # get calculate the gaussian weight
+
+        # normalize vs all 
+
+        # return the averaged features 
+        return h
+        
     @abstractmethod
     def compute_COV(self, traj):
         """

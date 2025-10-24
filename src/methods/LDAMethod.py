@@ -19,7 +19,7 @@ class LDA(FullMethodBase):
 
     def __init__(self, descriptor, interval, root):
         self.name = 'LDA'
-        super().__init__(descriptor, interval, lag=0, root=root, method=self.name)
+        super().__init__(descriptor, interval, lag=0, root=root, sigma=0, method=self.name)
         
 
     def train(self, trajs, selected_atoms):

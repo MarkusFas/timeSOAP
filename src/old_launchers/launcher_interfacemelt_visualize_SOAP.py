@@ -3,7 +3,8 @@ from src.old_scripts.descriptors import SOAP_mean, SOAP_full
 from src.transformations.PCAtransform import pcatransform, PCA_obj
 
 from src.old_scripts.fourier import fourier_trafo
-from src.visualize import plot_compare_atoms, plot_compare_timeave
+from src.visualize import plot_compare_atoms, plot_compare_timeave, plot_compare_spatialave, plot_compare_atoms_spat
+
 import numpy as np
 from tqdm import tqdm
 
@@ -50,8 +51,11 @@ if __name__=='__main__':
     ids_atoms_train = [atom.index for atom in trj[0] if atom.number == centers[0]][:10]
     test_intervals = [1, 100, 500]
     X_values = []
-    for interval in test_intervals:
-        X, properties = SOAP_full(trj, interval, ids_atoms_train, HYPER_PARAMETERS, centers, neighbors)
+    #for interval in test_intervals:
+    interval =1 
+    test_sigmas = [1,3,5,10]
+    for sigma in test_sigmas:
+        X, properties = SOAP_full(trj, interval, ids_atoms_train, HYPER_PARAMETERS, centers, neighbors, sigma)
         X_values.append(X[0]) # first center type TxNxD
 
     for i in range(X_values[0].shape[-1]//20):
@@ -60,5 +64,7 @@ if __name__=='__main__':
 
         print(f'done with calculation for {20*i} - {20*(i+1)}')
         label_used = label + f'_{i*20}-{20*(i+1)}'
-        plot_compare_timeave(X_values, SOAP_idx, label_used, properties.values.numpy(), test_intervals)
-        plot_compare_atoms(X_values, SOAP_idx, label_used, properties.values.numpy(), test_intervals)
+        plot_compare_spatialave(X_values, SOAP_idx, label_used, properties.values.numpy(), test_sigmas)
+        plot_compare_atoms_spat(X_values, SOAP_idx, label_used, properties.values.numpy(), test_sigmas)
+        #plot_compare_timeave(X_values, SOAP_idx, label_used, properties.values.numpy(), test_intervals)
+        #plot_compare_atoms(X_values, SOAP_idx, label_used, properties.values.numpy(), test_intervals)

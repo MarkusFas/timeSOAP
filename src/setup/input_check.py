@@ -3,7 +3,7 @@ import os
 from ase.io.trajectory import Trajectory
 from itertools import chain
 
-from src.methods import PCA, IVAC, TICA, TempPCA, PCAfull, PCAtest, LDA
+from src.methods import PCA, IVAC, TICA, TempPCA, PCAfull, PCAtest, LDA, SpatialPCA
 from src.descriptors.SOAP import SOAP_descriptor
 from src.setup.simulation import run_simulation
 from src.setup.simulation_test import run_simulation_test
@@ -135,7 +135,7 @@ def setup_simulation(**kwargs):
     kwargs = check_analysis_inputs(trajs, **kwargs)
     
     opt_methods = kwargs.get('methods')  # list of methods
-    implemented_opt = ['PCA', 'PCAfull', 'TICA', 'TEMPPCA', 'PCAtest', "LDA"]
+    implemented_opt = ['PCA', 'PCAfull', 'TICA', 'TEMPPCA', 'PCAtest', "LDA", "SpatialPCA"]
 
     system = kwargs["system"]
     version = kwargs["version"]
@@ -164,6 +164,10 @@ def setup_simulation(**kwargs):
                 method_obj = PCAfull(descriptor, interval, run_dir)
             elif method.upper() == 'PCATEST':
                 method_obj = PCAtest(descriptor, interval, run_dir)
+            elif method.upper() == 'SPATIALPCA':
+                #TODO add input check
+                sigma = kwargs.get('sigma')
+                method_obj = SpatialPCA(descriptor, interval, sigma, run_dir)
             elif method.upper() == 'LDA':
                 method_obj = LDA(descriptor, interval, run_dir)
             elif method.upper() == 'TICA':

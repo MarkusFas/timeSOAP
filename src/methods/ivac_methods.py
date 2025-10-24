@@ -19,7 +19,7 @@ class TICA(FullMethodBase):
 
     def __init__(self, descriptor, interval, lag, root):
         self.name = 'TICA'
-        super().__init__(descriptor, interval, lag=lag, root=root, method=self.name)
+        super().__init__(descriptor, interval, lag=lag, root=root,sigma=0, method=self.name)
 
     def compute_COV(self, traj):
         """
@@ -145,7 +145,7 @@ class IVAC(FullMethodBase):
         self.max_lag = max_lag
         self.min_lag = min_lag
         self.lag_step = lag_step
-        super().__init__(descriptor, interval, lag='ivac', root=root, method=self.name)
+        super().__init__(descriptor, interval, lag='ivac', root=root, sigma=0, method=self.name)
 
     def compute_COV(self, traj):
         """

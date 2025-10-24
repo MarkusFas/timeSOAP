@@ -9,6 +9,40 @@ from scipy.ndimage import gaussian_filter
 import ase.neighborlist
 from vesin import ase_neighbor_list
 from memory_profiler import profile
+from vesin import NeighborList
+
+def spatial_averaging(system, features, sigma, sel_atoms):
+
+    # get neighborlist (but not full, only for selected atoms)
+    #TODO: dont know what happens if centers and selectedatoms dont align here, then it 
+    # selects the wrong atom position here. Check SOAP samples & centers and order of SOAP feature
+    # and compare to order of positions
+    points = system.positions[sel_atoms]
+    calculator = NeighborList(cutoff=5.0, full_list=True)
+    i, j, S, d = calculator.compute(
+        points=points,
+        box=system.cell,
+        periodic=True,
+        quantities="ijSd"
+    )
+    i = i.astype(np.int64)
+    j = j.astype(np.int64)
+    d = d.astype(np.float64)
+    # get distance 
+    w = np.exp(-d**2 / (2*sigma**2), dtype=np.float64)     # pairwise weights
+    # add self-weight term separately later
+    self_weight = 1.0
+    h = np.zeros_like(features)             # (N_atoms, n_features)
+    np.add.at(h, i, w[:, None] * features[j])
+
+    h += self_weight * features
+    h /= (self_weight + w.sum())
+    # get calculate the gaussian weight
+
+    # normalize vs all 
+
+    # return the averaged features 
+    return h
 
 def eval_PETMAD(structures, atomsel):
     """
@@ -152,7 +186,7 @@ def SOAP_PCA(traj, ids_atoms, HYPER_PARAMETERS, centers, neighbors, pcatrafo):
     return pca.transpose(1,0,2) # should be N, T, P
 
 @profile
-def SOAP_full(traj, interval, ids_atoms, HYPER_PARAMETERS, centers, neighbors):
+def SOAP_full(traj, interval, ids_atoms, HYPER_PARAMETERS, centers, neighbors, sigma=0):
     # select which atoms to compute the SOAP for (here all)
     calculator = SoapPowerSpectrum(**HYPER_PARAMETERS)
 
@@ -184,6 +218,7 @@ def SOAP_full(traj, interval, ids_atoms, HYPER_PARAMETERS, centers, neighbors):
     
     for fidx, system in tqdm(enumerate(systems), total=len(systems), desc="Computing SOAPs"):
         new_soap_values = eval_SOAP([system], calculator, sel, atomsel).values.numpy()
+        new_soap_values = spatial_averaging(system, new_soap_values, sigma, ids_atoms)
         #new_soap_values = eval_PETMAD([traj[fidx]], atomsel)
         if fidx >= maxlag:
             roll_kernel = np.roll(kernel, fidx%maxlag)
@@ -910,6 +945,7 @@ def compute_autocorrelation_average(systems, hypers, kernel, atomsel, atomsel_el
     for ielem,elem in enumerate(atomsel_element):
         avgcc[ielem] = avgcov[ielem]/nsmp[ielem] - soapsum[ielem, :, None]* soapsum[ielem, None, :]/(nsmp[ielem]**2)
     return avgcc
+
 
 
 if __name__=='__main__':
