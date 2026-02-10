@@ -21,7 +21,7 @@ class LDA(FullMethodBase):
         self.name = 'LDA'
         super().__init__(descriptor, interval, lag=0, root=root, sigma=0, ridge_alpha=ridge_alpha, method=self.name)
 
-  
+
     def train(self, trajs, selected_atoms):
         """
         Train the method using a molecular dynamics trajectory.
@@ -86,6 +86,33 @@ class LDA(FullMethodBase):
         for i, trafo in enumerate(self.transformations):
             trafo.solve_GEV(self.mean[i], self.class_diff[i], self.inclass[i])
 
+    def train(self, trajs, selected_atoms):
+        self.selected_atoms = selected_atoms
+        self.descriptor.set_samples(selected_atoms)
+        self.compute_COV(trajs[0])
+
+        class_means = []
+        class_covs = []
+        for traj in trajs:
+            mean, cov1, cov2 = self.compute_COV(traj)
+            class_means.append(mean)
+            class_covs.append(cov1 + cov2)
+        
+        # total mean
+        self.mean = np.mean(class_means, axis=0)
+
+        # between-class covariance
+        self.class_diff = np.einsum('nyi,nyj->yij', class_means - self.mean, class_means - self.mean) / len(trajs)
+
+        # within-class covariance
+        within_cov = np.mean(class_covs, axis=0)
+        eps = 1E-8 * np.array([np.trace(cov) / cov.shape[0] for cov in within_cov])
+        self.inclass = np.array([0.5*(cov + cov.T) + eps[i]*np.eye(cov.shape[0]) for i, cov in enumerate(within_cov)])
+
+        # solve generalized eigenvalue problem
+        self.transformations = [PCA_obj(n_components=4, label=self.label) for _ in range(self.class_diff.shape[0])]
+        for i, trafo in enumerate(self.transformations):
+            trafo.solve_GEV(self.mean[i], self.class_diff[i], self.inclass[i])
 
     def compute_COV(self, traj):
         """
