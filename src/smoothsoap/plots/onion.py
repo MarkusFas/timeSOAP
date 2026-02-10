@@ -86,7 +86,8 @@ def plot_onion(X, atoms, test_atoms, label, delta_t=None, i_pca=0):
         plt.close()
         plot_histogram_onion(x, bin_centers, pdf, bin_widths, proper_classes, state_list, tot_area, class_to_color, label, delta_t)
         print(f"Saved onion states plot with delta_t={delta_t}")
-        plot_snapshot_onion(labels.reshape(n_particles,-1), atoms, test_atoms, label, delta_t, class_to_color)
+        #plot_snapshot_onion(labels.reshape(n_particles,-1), atoms, test_atoms, label, delta_t, class_to_color)
+        plot_snapshot_onion(labels.reshape(n_particles,-1)[:,0], atoms, test_atoms, label, delta_t, class_to_color)
 
 
 @mpltex.acs_decorator
@@ -187,7 +188,7 @@ def plot_snapshot_onion(labels, atoms, test_atoms, label, delta_t, class_to_colo
     )
     pipeline.remove_from_scene()
     del pipeline
-    
+
 
 def plot_snapshot(X, atoms, test_atoms, label, i_pca=0):
 
