@@ -83,7 +83,8 @@ def run_simulation(trj, trj_test, methods_intervals, **kwargs):
     if not isinstance(trj_test[0], list):
         trj_test = [trj_test]
 
-    if kwargs['model_load']==False:
+    if True:
+    #if kwargs['model_load']==False:
         for i, methods in tqdm(enumerate(methods_intervals), desc="looping through intervals"):
             for j, method in tqdm(enumerate(methods), desc="looping through methods"):
     
@@ -119,7 +120,7 @@ def run_simulation(trj, trj_test, methods_intervals, **kwargs):
                     else:
                         ValueError("No labels provided for the trajectory. Please provide 'switch_index' or multiple trajectories for classification.")
         
-                    # Classificatoin
+                    # Classification
                     run_logistic_regression(
                         X[0], y, 
                         outfile_prefix=method.label + '_logreg',
@@ -204,9 +205,11 @@ def run_simulation(trj, trj_test, methods_intervals, **kwargs):
                                 X_fromavg = [np.mean(x, axis=1)[:, np.newaxis, :] for x in X_fromavg]
                                 post_processing(X_fromavg, trj_predict, test_atoms, method.name, newlabel + f'_fromavg', method.interval, **kwargs)
 
+        savedX=X.copy()
 
 
-    else: # load_model=True
+    if True: # load_model=True
+    #else: # load_model=True
         print('LOADING OF MODELS HAS BEEN REQUESTED, MANY KEYWORDS IN THE INPUT WILL BE IGNORED')
         models = []  
         for model_path in kwargs['model_load']:
@@ -253,6 +256,9 @@ def run_simulation(trj, trj_test, methods_intervals, **kwargs):
                 Xs=cv['features/per_atom'][0].values
                 projected.append(Xs)
             X.append(np.stack(projected, axis=0))
+
+
+            print('savedthings',savedX, X, savedX-X)
 
             trj_predict = list(chain(*trj_test))
 
