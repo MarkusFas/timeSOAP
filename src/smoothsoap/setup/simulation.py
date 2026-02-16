@@ -83,19 +83,16 @@ def run_simulation(trj, trj_test, methods_intervals, **kwargs):
     if not isinstance(trj_test[0], list):
         trj_test = [trj_test]
 
-    if True:
-    #if kwargs['model_load']==False:
+    if len(kwargs['model_load'])==0:
         for i, methods in tqdm(enumerate(methods_intervals), desc="looping through intervals"):
             for j, method in tqdm(enumerate(methods), desc="looping through methods"):
-    
                 train_atoms, test_atoms = split_train_test(trj, trj_test, kwargs, is_shared, randomseed=7)
                 method.train(trj, train_atoms)
         
                 # for saving eigvecs, eigvals, mu etc for analysis
                 if kwargs['log']:
                     method.log_metrics()
-        
-        
+         
                 # get predictions with the new representation
                 # for prediction we can use the concatenated trajectories
          
@@ -205,11 +202,10 @@ def run_simulation(trj, trj_test, methods_intervals, **kwargs):
                                 X_fromavg = [np.mean(x, axis=1)[:, np.newaxis, :] for x in X_fromavg]
                                 post_processing(X_fromavg, trj_predict, test_atoms, method.name, newlabel + f'_fromavg', method.interval, **kwargs)
 
-        savedX=X.copy()
+                savedX=X.copy()
 
-
-    if True: # load_model=True
-    #else: # load_model=True
+    #if True: # load_model=True
+    else: # load_model=True
         print('LOADING OF MODELS HAS BEEN REQUESTED, MANY KEYWORDS IN THE INPUT WILL BE IGNORED')
         models = []  
         for model_path in kwargs['model_load']:

@@ -338,7 +338,7 @@ def setup_simulation(**kwargs):
                                 else:
                                     raise NotImplementedError(f"Method must be one of {implemented_opt}, got {method}")
 
-    if kwargs['model_load']!=False:
+    if len(kwargs['model_load'])!=0:
         model_paths = kwargs["model_load"]
         if isinstance(model_paths, str):
             model_paths = [model_paths]
@@ -352,6 +352,7 @@ def setup_simulation(**kwargs):
                 print(model_path)
                 if not os.path.exists(model_path):
                     raise TypeError(f"given model path '{model_path}' does not exist")
+
 
 #    if kwargs['trafo_load']!=False:
 #        trafo_paths = kwargs["trafo_load"]
@@ -383,6 +384,8 @@ def setup_simulation(**kwargs):
  
 
     else:
+
+        model_paths = []
 
         lag = kwargs.get("lag")
         for interval in kwargs.get('interval'):
