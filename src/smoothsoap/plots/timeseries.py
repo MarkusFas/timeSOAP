@@ -35,6 +35,7 @@ def plot_projection_atoms(X_values, PCA_idx, label, intervals):
         # plot different atoms
         
         for j, soap_i in enumerate(PCA_idx):
+            print('heeere,', soap_i, X.shape)
             ax[0,j].set_title(fr'PCA component {soap_i}')
             ax[0,j].set_xlabel('steps')
             mean = np.mean(X[:,:,soap_i], axis=1)

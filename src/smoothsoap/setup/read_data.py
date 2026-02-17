@@ -3,6 +3,7 @@ from ase.visualize.plot import plot_atoms
 import matplotlib.pyplot as plt
 import numpy as np
 import random
+import pathlib
 
 def read_trj(file, index=':'):
     trj = ase.io.read(file, index=index)
