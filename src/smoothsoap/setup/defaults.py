@@ -43,7 +43,7 @@ DEFAULT_PARAMS = {
     "ridge_save": True,
     "model_save": False,
     "model_proj_dims": [0],
-    "model_load": False,
+    "model_load": None,
     "trafo_load": False,
     "i_pca": 0,
     "log": False,

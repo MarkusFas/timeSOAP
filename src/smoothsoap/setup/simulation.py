@@ -83,7 +83,7 @@ def run_simulation(trj, trj_test, methods_intervals, **kwargs):
     if not isinstance(trj_test[0], list):
         trj_test = [trj_test]
 
-    if len(kwargs['model_load'])==0:
+    if kwargs['model_load']==None:
         for i, methods in tqdm(enumerate(methods_intervals), desc="looping through intervals"):
             for j, method in tqdm(enumerate(methods), desc="looping through methods"):
                 train_atoms, test_atoms = split_train_test(trj, trj_test, kwargs, is_shared, randomseed=7)
@@ -128,9 +128,8 @@ def run_simulation(trj, trj_test, methods_intervals, **kwargs):
     
                 if kwargs["model_save"]:
                     for i, trans in enumerate(method.transformations):
+                        print('saving model now for {}'.format(method.label))
                         method.descriptor.set_atom_types(trj)
-    
-                        print('kwargs',kwargs)
     
                         keys_to_save = ['system', 'version', 'specifier',
                                         'train_selected_atoms', 'test_selected_atoms', 'input_params', 
@@ -253,8 +252,6 @@ def run_simulation(trj, trj_test, methods_intervals, **kwargs):
                 projected.append(Xs)
             X.append(np.stack(projected, axis=0))
 
-
-            print('savedthings',savedX, X, savedX-X)
 
             trj_predict = list(chain(*trj_test))
 
