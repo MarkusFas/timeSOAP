@@ -59,7 +59,7 @@ def main():
     #input_file = 'systems/smallcell_interface_350/test_intervaltica.yaml'
     #input_file= 'systems/BaTiO3/test.yaml'
 
-    if len(sys.argv)>0:
+    if len(sys.argv)>1:
         input_file=sys.argv[1]
     else:
        print('Please provide default file')
@@ -71,7 +71,7 @@ def main():
 
     if input_file is None:
         systems = ['smallcell_interface_350']#['smallcell_interface_350', 'smallcell_interface_350', 'smallcell_interface_350', 'smallcell_interface_350', 'smallcell_interface_350'] #['iron'] 
-        runfiles = ['test_interval_lf0']#['test_interval_lf0', 'test_interval_lf1', 'test_interval_lf2', 'test_interval_lf3', 'test_interval_lf4'] #['run'] 
+        runfiles = ['test_interval_4ns']#['test_interval_lf0', 'test_interval_lf1', 'test_interval_lf2', 'test_interval_lf3', 'test_interval_lf4'] #['run'] 
 
         yaml_paths = []
         for system, runfile in zip(systems, runfiles):
