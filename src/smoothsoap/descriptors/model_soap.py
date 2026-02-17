@@ -153,7 +153,8 @@ class SOAP_CV(torch.nn.Module):
     def save_model(self, path='.', name='soap_model'):
         capabilities = ModelCapabilities(
             outputs={"features": ModelOutput(per_atom=False),
-                "features/per_atom": ModelOutput(per_atom=True)},
+                "features/per_atom": ModelOutput(per_atom=True),
+            },
             interaction_range=10.0,
             supported_devices=["cpu"],
             length_unit="A",

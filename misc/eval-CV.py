@@ -69,7 +69,7 @@ if __name__ == "__main__":
     parser.add_argument('--model', type=str, default=None, help='Path to the model to evaluate')
     parser.add_argument('--trj', type=str, default=None, help='Path to the trajectory to evaluate on')
     parser.add_argument('--nskip', type=int, default=1, help='Path to the trajectory to evaluate on')
-    parser.add_argument('--out', type=str, default=".", help='Path to the output file')
+    parser.add_argument('--out', type=str, default="./CV.json.gz", help='output filename')
     model_name = parser.parse_args().model
     trj_name = parser.parse_args().trj
     nskip = parser.parse_args().nskip
@@ -145,7 +145,7 @@ if __name__ == "__main__":
     )
 
     chemiscope.write_input(
-        path="trajectory-waterice-CV.json.gz",
+        path=out_path,
         # dataset metadata can also be included to provide a self-contained description
         # of the data, authors, and references
         metadata={

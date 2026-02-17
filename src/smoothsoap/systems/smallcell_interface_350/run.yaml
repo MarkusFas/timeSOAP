@@ -25,13 +25,13 @@ methods:
   #- PCAFull
   #- CumulantPCA
   #- CumulantIVAC
-
+  - LDA
   #- CumulantPCA
   #- CumulantIVAC
   #- PCAFull
   #- SpatialPCA
-  - SpatialIVAC
-  - SpatialIVACnorm
+  #- SpatialIVAC
+  #- SpatialIVACnorm
   #- CumulantPCA # should correspond to full spatial averaging
   #- TICA
   #- PCAFull

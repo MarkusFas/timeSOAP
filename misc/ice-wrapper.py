@@ -32,13 +32,18 @@ class SOAP_CV_distinct(torch.nn.Module):
         selected_atoms: Optional[Labels],
     ) -> Dict[str, TensorMap]:
 
+        outputs = {"features": ModelOutput(per_atom=False),
+            "features/per_atom": ModelOutput(per_atom=True),
+        }
         if selected_atoms is None:
             eval_options = ModelEvaluationOptions(
                 length_unit='',
                 outputs=outputs,
                 selected_atoms=selected_atoms,
             )
-            return self.model(systems, eval_options, check_consistency=True)
+            #features = self.model(systems, eval_options, check_consistency=True)["features"]
+            #return {"features": features}
+            return self.model(systems, eval_options, check_consistency=True) 
 
         pos = systems[0].positions[selected_atoms.values[:,1]]
         mask = (pos[:, 2] > self.zmin) & (pos[:, 2] < self.zmax)
@@ -48,20 +53,33 @@ class SOAP_CV_distinct(torch.nn.Module):
             names=selected_atoms.names,
             values=selected_atoms.values[mask],
         )
-        print('newselatoms', newselected_atoms.values.shape)
-        self.selected_atoms = newselected_atoms
+        
         eval_options = ModelEvaluationOptions(
             length_unit='',
             outputs=outputs,
-            selected_atoms=self.selected_atoms,
+            selected_atoms=newselected_atoms,
         )
-        return self.model(systems, eval_options, check_consistency=True) #, "soaps": soap }
+        #features = self.model(systems, eval_options, check_consistency=True)["features"]
+        #return {"features": features} #, "soaps": soap }
+        return self.model(systems, eval_options, check_consistency=True)
 
 
     def save_model(self, path='.', name='wrapper'):
         capabilities = self.model.capabilities()
+        new_capabilities = ModelCapabilities(
+            outputs={"features": ModelOutput(per_atom=False),
+                     "features/per_atom": ModelOutput(per_atom=True)
+            },
+            interaction_range=capabilities.interaction_range,
+            supported_devices=capabilities.supported_devices,
+            length_unit=capabilities.length_unit,
+            atomic_types=capabilities.atomic_types,
+            dtype=capabilities.dtype,
+        )
+        #print('model', capabilities.outputs)
+        #capabilities.outputs = {"features": ModelOutput(per_atom=False)}
         metadata = self.model.metadata()
-        wrapper = AtomisticModel(self, metadata, capabilities)
+        wrapper = AtomisticModel(self, metadata, new_capabilities)
         print("saving to {}/{}.pt".format(path, name))
         wrapper.save("{}/{}.pt".format(path, name), collect_extensions=f"{path}/extensions")
 
@@ -75,6 +93,10 @@ if __name__ == "__main__":
     model_path = Path(parser.parse_args().model_path)
     zmin = parser.parse_args().zmin
     zmax = parser.parse_args().zmax
+    
+    #model_path = Path('/Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/results/icewaterinterface4ns_oxygen_proper_testset_1ps/v0/SOAP/866/testLDA/LDA/interval_100/lag_0/sigma_0/ridge_a1e-05/SOAP_866_[8]/model_soap.pt')
+    #zmin = 25
+    #zmax=31
     model = load_atomistic_model(str(model_path), extensions_directory=f"{model_path.parent / 'extensions'}")
     print(f"{model_path.parent / 'extensions'}")
     
@@ -83,6 +105,7 @@ if __name__ == "__main__":
     wrapper.eval()
     print("saving wrapper ...")
     wrapper.save_model(path='.', name=f'soap_wrapper_zmin{zmin}_zmax{zmax}')
+    #wrapper = load_atomistic_model(f'./soap_wrapper_zmin{zmin}_zmax{zmax}.pt', extensions_directory='./extensions')
     exit()
     import vesin
     from ase.io import read, write
@@ -137,7 +160,7 @@ if __name__ == "__main__":
         values=torch.tensor([[0, j] for j in np.arange(0, len(structures[0]), 3)]))
     
     model_output = ModelOutput(per_atom=False)
-
+    print("evaluating wrapper ...")
     cv = wrapper(
         systems=systems,
         outputs={"features": model_output},

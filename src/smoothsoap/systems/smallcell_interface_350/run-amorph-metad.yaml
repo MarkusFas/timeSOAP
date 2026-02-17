@@ -1,0 +1,59 @@
+system: amorph-metad-1ps #icewaterinterface_cumpca_metad_big_265
+specifier: all #N909_compare_spatial_cutoff_ev10 #ALL_train_on_300_test200_500fsdump
+interval: 
+  - 1
+
+n_cumulants: 1
+sigma: 
+  - 100000 # basically all have same weight
+spatial_cutoff: 
+  - 6
+  #- 6
+  #- 7
+#lag: 0
+lag: 100
+max_lag: 500
+min_lag: 10
+lag_step: 10
+train_selected_atoms: 720
+#test_selected_atoms: [705, 522, 699, 696, 693, 690, 513, 684, 540, 678, 570, 672, 669, 666, 591, 600] #only ice
+test_selected_atoms: null
+methods: 
+  #- PCAFull
+  #- IVAC
+  #- SpatialPCA
+  - PCAFull
+  #- SpatialIVACnorm
+  #- CumulantPCA # should correspond to full spatial averaging
+  #- TICA
+  #- PCAFull
+input_params:
+  fname: 
+    - /Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/metad/test/positions.lammpstrj
+  indices: 
+    - '::100' # gives a dump frequency of 100fs * 10 = 1ps 
+  concatenate: True
+
+output_params:
+  fname: 
+    - /Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/metad/test/positions.lammpstrj
+  indices: 
+    - '::100' # gives a dump frequency of 100fs * 10 = 1ps 
+  concatenate: True
+
+ridge: true
+ridge_alpha: 
+  - 1e-5
+ridge_save: true
+predict_avg: true
+descriptor: SOAP
+SOAP_params:
+  centers: [8]
+  neighbors: [8]
+  cutoff: 8 #10 Pavan spatial avg
+  max_angular: 6 #4 Pavan spatial avg
+  max_radial: 6 #4 Pavan spatial avg
+
+output_per_structure: false
+model_save: True
+plots: ["projection", "pca", "onion", "snapshot", "histogram", "pca_atoms", "pca_height"]

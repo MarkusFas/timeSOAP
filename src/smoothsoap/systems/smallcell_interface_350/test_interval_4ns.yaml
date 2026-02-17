@@ -1,7 +1,7 @@
-system: icewaterinterface4ns_oxygen_proper_testset_10ps #
-specifier: testonionplot #TICA_10_spatialcut6 #ALL_train_on_300_test200_500fsdump
+system: icewaterinterface4ns_oxygen_proper_testset_1ps #
+specifier: testhannah #TICA_10_spatialcut6 #ALL_train_on_300_test200_500fsdump
 interval: 
-  - 200
+  - 1
 
 n_cumulants: 1
 sigma: 
@@ -22,17 +22,18 @@ methods:
   #- PCAFull
   #- PCAFull
   #- IVAC
-  - PCAFull
+  #- PCAFull
+  #- LDA
   #- SpatialIVACnorm
   #- TempPCA
   #- PCAFull
-  #- IVAC
+  - IVAC
   #- CumulantPCA
   #- CumulantIVAC
 
   #- CumulantPCA
   #- CumulantIVAC
- 
+  
   #- SpatialPCA
   
   #- SpatialIVAC
@@ -44,8 +45,10 @@ input_params:
   fname: 
     #- data/interfaces/250_275_fast/positions.lammpstrj
     - /Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/data/icemeltinterface/nobias/positions.lammpstrj
+    #- /Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/data/icemeltinterface/nobias/short.lammpstrj
     #- /Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/data/ice_water_separate_trj/250/ice.lammpstrj 
     #- /Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/data/ice_water_separate_trj/250/water.lammpstrj
+   
   
     #- /Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/metad/metad_interface/CumulantPCA/TIP4PICE/metad_big_265/positions.lammpstrj
     #- /Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/metad/metad_interface/TempPCA/opes_med_265/positions.lammpstrj
@@ -55,6 +58,8 @@ input_params:
     #- /Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/data/icemeltinterface/TIP4P/positions.extxyz
   indices: 
     - '::100' # gives a dump frequency of 100fs * 100 = 10ps so 400 structures...
+  
+ 
     #- '::100'
     #- '::250'
     #- '-1000:'
@@ -64,6 +69,7 @@ output_params:
   fname: 
     #- data/interfaces/250_275_fast/positions.lammpstrj
     - /Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/data/icemeltinterface/nobias/positions.lammpstrj
+    #- /Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/data/icemeltinterface/nobias/short.lammpstrj
     #- /Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/metad/metad_interface/CumulantPCA/TIP4PICE/metad_big_265/positions_old.lammpstrj
     #- /Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/metad/metad_interface/CumulantPCA/TIP4PICE/metad_big_265/positions.lammpstrj
     #- /Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/metad/metad_interface/TempPCA/opes_med_265/positions.lammpstrj
