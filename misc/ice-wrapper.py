@@ -32,40 +32,26 @@ class Wrapper_per_atom(torch.nn.Module):
         outputs: Dict[str, ModelOutput],
         selected_atoms: Optional[Labels],
     ) -> Dict[str, TensorMap]:
-        print('entering forward')
+
         outputs = {
             "features": ModelOutput(per_atom=False),
             "features/per_atom": ModelOutput(per_atom=True),
         }
         if selected_atoms is None:
-            eval_options = ModelEvaluationOptions(
-                length_unit='',
-                outputs=outputs,
-                selected_atoms=selected_atoms,
-            )
-            #features = self.model(systems, eval_options, check_consistency=True)["features"]
-            #return {"features": features}
             return self.model(systems, outputs, selected_atoms) 
 
         pos = systems[0].positions[selected_atoms.values[:,1]]
         mask = (pos[:, 2] > self.zmin) & (pos[:, 2] < self.zmax)
-        #dtype = selected_atoms.values.dtype
-
         newselected_atoms = Labels(
             names=selected_atoms.names,
             values=selected_atoms.values[mask],
         )
-        print('passing to model')
-        features = self.model(systems, outputs, newselected_atoms)["features"]
-        return {"features": features} #, "soaps": soap }
-        #return self.model(systems, outputs, newselected_atoms)
+        return self.model(systems, outputs, newselected_atoms)
 
     def requested_neighbor_lists(self):
         return self.nlistoptions
     
     def save_model(self, metadata, capabilities, path='.', name='wrapper'):
-        #capabilities = self.model.capabilities()
-        print('entering save model')
         new_capabilities = ModelCapabilities(
             outputs={"features": ModelOutput(per_atom=False),
                      "features/per_atom": ModelOutput(per_atom=True)
@@ -76,7 +62,54 @@ class Wrapper_per_atom(torch.nn.Module):
             atomic_types=capabilities.atomic_types,
             dtype=capabilities.dtype,
         )
+        wrapper = AtomisticModel(self, metadata, new_capabilities)
+        print("saving to {}/{}.pt".format(path, name))
+        wrapper.save("{}/{}.pt".format(path, name), collect_extensions=f"{path}/extensions")
 
+
+class Wrapper(torch.nn.Module):
+    def __init__(self, model, zmin, zmax, nlistoptions):
+        super().__init__()
+        self.model = model
+        self.zmin = zmin
+        self.zmax = zmax
+        self.nlistoptions = nlistoptions
+        
+    def forward(
+        self,
+        systems: List[System],
+        outputs: Dict[str, ModelOutput],
+        selected_atoms: Optional[Labels],
+    ) -> Dict[str, TensorMap]:
+        
+        outputs = {
+            "features": ModelOutput(per_atom=False),
+            "features/per_atom": ModelOutput(per_atom=True),
+        }
+        if selected_atoms is None:
+            return self.model(systems, outputs, selected_atoms) 
+
+        pos = systems[0].positions[selected_atoms.values[:,1]]
+        mask = (pos[:, 2] > self.zmin) & (pos[:, 2] < self.zmax)
+        newselected_atoms = Labels(
+            names=selected_atoms.names,
+            values=selected_atoms.values[mask],
+        )
+        features = self.model(systems, outputs, newselected_atoms)["features"]
+        return {"features": features}
+
+    def requested_neighbor_lists(self):
+        return self.nlistoptions
+
+    def save_model(self, metadata, capabilities, path='.', name='wrapper'):
+        new_capabilities = ModelCapabilities(
+            outputs={"features": ModelOutput(per_atom=False)},
+            interaction_range=capabilities.interaction_range,
+            supported_devices=capabilities.supported_devices,
+            length_unit=capabilities.length_unit,
+            atomic_types=capabilities.atomic_types,
+            dtype=capabilities.dtype,
+        )
         wrapper = AtomisticModel(self, metadata, new_capabilities)
         print("saving to {}/{}.pt".format(path, name))
         wrapper.save("{}/{}.pt".format(path, name), collect_extensions=f"{path}/extensions")
@@ -94,14 +127,16 @@ if __name__ == "__main__":
     zmin = parser.parse_args().zmin
     zmax = parser.parse_args().zmax
     per_atom = parser.parse_args().per_atom
+
     #model_path = Path('/Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/results/icewaterinterface4ns_oxygen_proper_testset_1ps/v0/SOAP/866/testLDA/LDA/interval_100/lag_0/sigma_0/ridge_a1e-05/SOAP_866_[8]/model_soap.pt')
     #zmin = 25
     #zmax=31
     model = load_atomistic_model(str(model_path), extensions_directory=f"{model_path.parent / 'extensions'}")
-    print(f"{model_path.parent / 'extensions'}")
     
-
-    wrapper = Wrapper_per_atom(model.module, zmin, zmax, nlistoptions=model.requested_neighbor_lists())
+    if per_atom:
+        wrapper = Wrapper_per_atom(model.module, zmin, zmax, nlistoptions=model.requested_neighbor_lists())
+    else:
+        wrapper = Wrapper(model.module, zmin, zmax, nlistoptions=model.requested_neighbor_lists())
     wrapper.eval()
     print("saving wrapper ...")
     wrapper.save_model(model.metadata(), model.capabilities(), path='.', name=f'soap_wrapper_zmin{zmin}_zmax{zmax}')
@@ -113,13 +148,13 @@ if __name__ == "__main__":
     structures = read('/Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/data/icemeltinterface/nobias/short.lammpstrj', index=':')
     structures = structures[:10]
     systems = systems_to_torch(structures, dtype=torch.float64)
-
+    wrapper = load_atomistic_model(f'./soap_wrapper_zmin{zmin}_zmax{zmax}.pt', extensions_directory='./extensions')
     systems_new = []
     for i, system in enumerate(systems):
         
         #atoms = structures[i]
         nlistoptions = wrapper.requested_neighbor_lists()[0]
-        print(nlistoptions)
+        #print(nlistoptions)
         nlist = vesin.NeighborList(cutoff=nlistoptions.cutoff, full_list=nlistoptions.full_list) 
         i, j, S, D = nlist.compute(
             points=system.positions,
@@ -159,12 +194,18 @@ if __name__ == "__main__":
         names=["system", "atom"],
         values=torch.tensor([[0, j] for j in np.arange(0, len(structures[0]), 3)]))
     
-    model_output = ModelOutput(per_atom=False)
+    outputs={"features": ModelOutput(per_atom=False)}
+    if per_atom:
+        outputs["features/per_atom"] = ModelOutput(per_atom=True)
+
+    evaloptions = ModelEvaluationOptions(
+        length_unit='',
+        outputs=outputs,
+        selected_atoms=selected_atoms,
+    )
     print("evaluating wrapper ...")
     cv = wrapper(
         systems=systems,
-        outputs={"features": model_output},
-        selected_atoms=selected_atoms,
+        options=evaloptions,
+        check_consistency=True,
     )
-
-    print(cv)
