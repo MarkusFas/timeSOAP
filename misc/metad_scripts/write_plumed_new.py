@@ -6,7 +6,7 @@ import random
 
 plumed_fname = 'plumed.dat'
 selected_type = 8        # example, use the actual type for O in your system
-zmin, zmax = 18,38
+zmin, zmax = 60, 67
 
 # Load the LAMMPS data file
 
