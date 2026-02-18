@@ -18,12 +18,13 @@ import argparse
 from pathlib import Path
 
 
-class SOAP_CV_distinct(torch.nn.Module):
-    def __init__(self, model, zmin, zmax):
+class Wrapper_per_atom(torch.nn.Module):
+    def __init__(self, model, zmin, zmax, nlistoptions):
         super().__init__()
         self.model = model
         self.zmin = zmin
         self.zmax = zmax
+        self.nlistoptions = nlistoptions
         
     def forward(
         self,
@@ -31,8 +32,9 @@ class SOAP_CV_distinct(torch.nn.Module):
         outputs: Dict[str, ModelOutput],
         selected_atoms: Optional[Labels],
     ) -> Dict[str, TensorMap]:
-
-        outputs = {"features": ModelOutput(per_atom=False),
+        print('entering forward')
+        outputs = {
+            "features": ModelOutput(per_atom=False),
             "features/per_atom": ModelOutput(per_atom=True),
         }
         if selected_atoms is None:
@@ -43,7 +45,7 @@ class SOAP_CV_distinct(torch.nn.Module):
             )
             #features = self.model(systems, eval_options, check_consistency=True)["features"]
             #return {"features": features}
-            return self.model(systems, eval_options, check_consistency=True) 
+            return self.model(systems, outputs, selected_atoms) 
 
         pos = systems[0].positions[selected_atoms.values[:,1]]
         mask = (pos[:, 2] > self.zmin) & (pos[:, 2] < self.zmax)
@@ -53,19 +55,17 @@ class SOAP_CV_distinct(torch.nn.Module):
             names=selected_atoms.names,
             values=selected_atoms.values[mask],
         )
-        
-        eval_options = ModelEvaluationOptions(
-            length_unit='',
-            outputs=outputs,
-            selected_atoms=newselected_atoms,
-        )
-        #features = self.model(systems, eval_options, check_consistency=True)["features"]
-        #return {"features": features} #, "soaps": soap }
-        return self.model(systems, eval_options, check_consistency=True)
+        print('passing to model')
+        features = self.model(systems, outputs, newselected_atoms)["features"]
+        return {"features": features} #, "soaps": soap }
+        #return self.model(systems, outputs, newselected_atoms)
 
-
-    def save_model(self, path='.', name='wrapper'):
-        capabilities = self.model.capabilities()
+    def requested_neighbor_lists(self):
+        return self.nlistoptions
+    
+    def save_model(self, metadata, capabilities, path='.', name='wrapper'):
+        #capabilities = self.model.capabilities()
+        print('entering save model')
         new_capabilities = ModelCapabilities(
             outputs={"features": ModelOutput(per_atom=False),
                      "features/per_atom": ModelOutput(per_atom=True)
@@ -76,12 +76,11 @@ class SOAP_CV_distinct(torch.nn.Module):
             atomic_types=capabilities.atomic_types,
             dtype=capabilities.dtype,
         )
-        #print('model', capabilities.outputs)
-        #capabilities.outputs = {"features": ModelOutput(per_atom=False)}
-        metadata = self.model.metadata()
+
         wrapper = AtomisticModel(self, metadata, new_capabilities)
         print("saving to {}/{}.pt".format(path, name))
         wrapper.save("{}/{}.pt".format(path, name), collect_extensions=f"{path}/extensions")
+
 
 if __name__ == "__main__":
 
@@ -89,11 +88,12 @@ if __name__ == "__main__":
     parser.add_argument('model_path', type=str, help='model to wrap')
     parser.add_argument('--zmin', type=float, default=-np.inf, help='minimum z-coordinate')
     parser.add_argument('--zmax', type=float, default=np.inf, help='maximum z-coordinate')
+    parser.add_argument('--per_atom', type=bool, default=False, help='whether to return per-atom features')
 
     model_path = Path(parser.parse_args().model_path)
     zmin = parser.parse_args().zmin
     zmax = parser.parse_args().zmax
-    
+    per_atom = parser.parse_args().per_atom
     #model_path = Path('/Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/results/icewaterinterface4ns_oxygen_proper_testset_1ps/v0/SOAP/866/testLDA/LDA/interval_100/lag_0/sigma_0/ridge_a1e-05/SOAP_866_[8]/model_soap.pt')
     #zmin = 25
     #zmax=31
@@ -101,12 +101,12 @@ if __name__ == "__main__":
     print(f"{model_path.parent / 'extensions'}")
     
 
-    wrapper = SOAP_CV_distinct(model, zmin, zmax)
+    wrapper = Wrapper_per_atom(model.module, zmin, zmax, nlistoptions=model.requested_neighbor_lists())
     wrapper.eval()
     print("saving wrapper ...")
-    wrapper.save_model(path='.', name=f'soap_wrapper_zmin{zmin}_zmax{zmax}')
+    wrapper.save_model(model.metadata(), model.capabilities(), path='.', name=f'soap_wrapper_zmin{zmin}_zmax{zmax}')
     #wrapper = load_atomistic_model(f'./soap_wrapper_zmin{zmin}_zmax{zmax}.pt', extensions_directory='./extensions')
-    exit()
+    #exit()
     import vesin
     from ase.io import read, write
     #structures = read('/Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/data/icemeltinterface/nobias/positions.lammpstrj', index=':')
@@ -118,7 +118,7 @@ if __name__ == "__main__":
     for i, system in enumerate(systems):
         
         #atoms = structures[i]
-        nlistoptions = wrapper.model.requested_neighbor_lists()[0]
+        nlistoptions = wrapper.requested_neighbor_lists()[0]
         print(nlistoptions)
         nlist = vesin.NeighborList(cutoff=nlistoptions.cutoff, full_list=nlistoptions.full_list) 
         i, j, S, D = nlist.compute(
