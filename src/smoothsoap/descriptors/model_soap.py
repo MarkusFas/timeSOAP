@@ -16,6 +16,9 @@ from metatomic.torch import (
     systems_to_torch,
 )
 from featomic.torch import SoapPowerSpectrum
+from torch.profiler import record_function
+import metatensor.torch as mts
+
 
 class SOAP_CV(torch.nn.Module):
     def __init__(self, cutoff, max_angular, max_radial, centers, neighbors, projection_matrix=None):
@@ -92,12 +95,12 @@ class SOAP_CV(torch.nn.Module):
             soap = soap.keys_to_properties(["neighbor_1_type", "neighbor_2_type"])#self.neighbor_type_pairs)
 
             soap_block = soap.block()
-    
+
             projected = torch.einsum('ij,jk->ik',(soap_block.values - self.mu), self.projection_matrix[:,self.proj_dims])#, dtype=torch.float64)
 
             samples_per_atom = soap_block.samples.remove("center_type")
             samples = Labels(["system"], torch.zeros((1, 1), dtype=torch.int32))
-            
+         
             projected_mean = torch.mean(projected, dim=0)
             projected_mean = projected_mean.unsqueeze(0)
 
@@ -158,11 +161,10 @@ class SOAP_CV(torch.nn.Module):
             dtype="float64",
         )
         
-        metadata = ModelMetadata(name="Projection to ICA", authors=['SmoothSOAP'], description='Hyperparameters in extra', extra=self.hypers)
-        #print(metadata)
+        metadata = ModelMetadata(name="SOAP-based CV", authors=['smoothSOAP'], description='Hyperparameters in extra', extra=self.hypers)
         model = AtomisticModel(self, metadata, capabilities)
-        print(f'model saved at {path}/{name}.pt')
         model.save("{}/{}.pt".format(path,name), collect_extensions=f"{path}/extensions")
+        print(f'model saved at {path}/{name}.pt')
 
 
     def compute_cumulants(self, X, n_cumulants):
