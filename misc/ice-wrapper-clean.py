@@ -80,58 +80,29 @@ class Wrapper(torch.nn.Module):
             systems: List[System],
             selected_atoms: Optional[Labels]
     ) -> Labels:
-        with record_function("+++++++++++++ create_selection"):
-            if selected_atoms is None:
-                print('selected_atoms None')
-                pos = systems[0].positions
-                mask = (pos[:, 2] > self.zmin) & (pos[:, 2] < self.zmax)
-                indices = torch.arange(len(pos))
-                print(indices[mask])
-                if len(indices[mask]) == 0:
-                    newselected_atoms = Labels(
-                        names=["system", "atom"],
-                        values=torch.tensor([[0, int(i)] for i in [0]]),
-                    )
-                    return newselected_atoms
-
+        if selected_atoms is None:
+            pos = systems[0].positions
+            mask = (pos[:, 2] > self.zmin) & (pos[:, 2] < self.zmax)
+            indices = torch.arange(len(pos))
+            if len(indices[mask]) == 0:
                 newselected_atoms = Labels(
                     names=["system", "atom"],
-                    values=torch.tensor([[0, int(i)] for i in indices[mask]]),
+                    values=torch.tensor([[0, int(i)] for i in [0]]),
                 )
-            else:
-                print("CALLED WITH SELECTED ATOMS:", selected_atoms.values) 
-                pos = systems[0].positions[selected_atoms.values[:,1]]
-                mask = (pos[:, 2] > self.zmin) & (pos[:, 2] < self.zmax)
-                newselected_atoms = Labels(
-                    names=selected_atoms.names,
-                    values=selected_atoms.values[mask],
-                )
-            return newselected_atoms
+                return newselected_atoms
 
-    def get_features(
-        self,
-        systems: List[System],
-        outputs: Dict[str, ModelOutput],
-        selected_atoms: Labels,
-    ) -> Tuple[TensorMap, TensorMap]:
-
-        with record_function(f"+++++++ run inner model {len(selected_atoms)}"):
-            features = self.model(systems, outputs, selected_atoms)["features"]
-        
-        with record_function("+++++ should not be there"):
-            block = features.block()
-            """new = TensorBlock(
-                samples = block.samples,
-                values = torch.tensor([len(selected_atoms.values)],
-                    dtype=torch.float64).unsqueeze(-1),
-                properties = block.properties,
-                components=[],
+            newselected_atoms = Labels(
+                names=["system", "atom"],
+                values=torch.tensor([[0, int(i)] for i in indices[mask]]),
             )
-            cv = TensorMap(
-                keys=Labels("_", torch.tensor([[0]])),
-                blocks=[new],
-            )"""
-        return features, features
+        else:
+            pos = systems[0].positions[selected_atoms.values[:,1]]
+            mask = (pos[:, 2] > self.zmin) & (pos[:, 2] < self.zmax)
+            newselected_atoms = Labels(
+                names=selected_atoms.names,
+                values=selected_atoms.values[mask],
+            )
+        return newselected_atoms
 
     def forward(
         self,
@@ -140,22 +111,9 @@ class Wrapper(torch.nn.Module):
         selected_atoms: Optional[Labels],
     ) -> Dict[str, TensorMap]:
         
-        outputs = {
-            "features": ModelOutput(per_atom=False),
-            "features/per_atom": ModelOutput(per_atom=True),
-        }
-        #if selected_atoms is None:
-        #    return self.model(systems, outputs, selected_atoms) 
-
-        #pos = systems[0].positions[selected_atoms.values[:,1]]
-        #mask = (pos[:, 2] > self.zmin) & (pos[:, 2] < self.zmax)
-        #newselected_atoms = Labels(
-        #    names=selected_atoms.names,
-        #    values=selected_atoms.values[mask],
-        #)
         newselected_atoms = self.pre_selected(systems, selected_atoms)
-        features, cv = self.get_features(systems, outputs, newselected_atoms)
-        return {"features": features, "features/per_atom": cv}
+        features = self.model(systems, outputs, newselected_atoms)
+        return features
 
     def requested_neighbor_lists(self):
         return self.nlistoptions
