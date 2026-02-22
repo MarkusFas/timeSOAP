@@ -85,17 +85,23 @@ class Wrapper(torch.nn.Module):
         outputs = {
             "features": ModelOutput(per_atom=False),
             "features/per_atom": ModelOutput(per_atom=True),
+            "features/test": ModelOutput(per_atom=True),
         }
         if selected_atoms is None:
             return self.model(systems, outputs, selected_atoms) 
 
         pos = systems[0].positions[selected_atoms.values[:,1]]
+        z_all = systems[0].positions[:, 2]
+        indices = selected_atoms.values[:, 1]
+        z = z_all.index_select(0, indices)
         mask = (pos[:, 2] > self.zmin) & (pos[:, 2] < self.zmax)
         newselected_atoms = Labels(
             names=selected_atoms.names,
             values=selected_atoms.values[mask],
         )
         features = self.model(systems, outputs, newselected_atoms)["features"]
+        print('sel', selected_atoms.values.is_contiguous())
+        print('newsel', newselected_atoms.values.is_contiguous())
         return {"features": features}
 
     def requested_neighbor_lists(self):
@@ -132,7 +138,7 @@ if __name__ == "__main__":
     #zmin = 25
     #zmax=31
     model = load_atomistic_model(str(model_path), extensions_directory=f"{model_path.parent / 'extensions'}")
-    
+    print('capabilities of loaded model:', model.capabilities().outputs)
     if per_atom:
         wrapper = Wrapper_per_atom(model.module, zmin, zmax, nlistoptions=model.requested_neighbor_lists())
     else:
@@ -151,10 +157,11 @@ if __name__ == "__main__":
     wrapper = load_atomistic_model(f'./soap_wrapper_zmin{zmin}_zmax{zmax}.pt', extensions_directory='./extensions')
     systems_new = []
     for i, system in enumerate(systems):
-        
+
         #atoms = structures[i]
         nlistoptions = wrapper.requested_neighbor_lists()[0]
-        #print(nlistoptions)
+        print(nlistoptions)
+        
         nlist = vesin.NeighborList(cutoff=nlistoptions.cutoff, full_list=nlistoptions.full_list) 
         i, j, S, D = nlist.compute(
             points=system.positions,

@@ -115,7 +115,7 @@ class SOAP_CV(torch.nn.Module):
         block = TensorBlock(
             values=projected_mean,
             samples=samples,
-            components=[],
+            
             properties=Labels("soap_pca", torch.tensor(self.proj_dims, dtype=torch.int).unsqueeze(-1)),
         )
         cv = TensorMap(
