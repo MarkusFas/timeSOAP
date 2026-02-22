@@ -99,6 +99,7 @@ class Wrapper(torch.nn.Module):
             names=selected_atoms.names,
             values=selected_atoms.values[mask],
         )
+        
         features = self.model(systems, outputs, newselected_atoms)["features"]
         print('sel', selected_atoms.values.is_contiguous())
         print('newsel', newselected_atoms.values.is_contiguous())
