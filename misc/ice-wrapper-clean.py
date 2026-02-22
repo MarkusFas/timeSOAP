@@ -18,6 +18,54 @@ import argparse
 from pathlib import Path
 from torch.profiler import record_function
 
+class Wrapper_per_atom(torch.nn.Module):
+    def __init__(self, model, zmin, zmax, nlistoptions):
+        super().__init__()
+        self.model = model
+        self.zmin = zmin
+        self.zmax = zmax
+        self.nlistoptions = nlistoptions
+        
+    def forward(
+        self,
+        systems: List[System],
+        outputs: Dict[str, ModelOutput],
+        selected_atoms: Optional[Labels],
+    ) -> Dict[str, TensorMap]:
+
+        outputs = {
+            "features": ModelOutput(per_atom=False),
+            "features/per_atom": ModelOutput(per_atom=True),
+        }
+        if selected_atoms is None:
+            return self.model(systems, outputs, selected_atoms) 
+
+        pos = systems[0].positions[selected_atoms.values[:,1]]
+        mask = (pos[:, 2] > self.zmin) & (pos[:, 2] < self.zmax)
+        newselected_atoms = Labels(
+            names=selected_atoms.names,
+            values=selected_atoms.values[mask],
+        )
+        return self.model(systems, outputs, newselected_atoms)
+
+    def requested_neighbor_lists(self):
+        return self.nlistoptions
+    
+    def save_model(self, metadata, capabilities, path='.', name='wrapper'):
+        new_capabilities = ModelCapabilities(
+            outputs={"features": ModelOutput(per_atom=False),
+                     "features/per_atom": ModelOutput(per_atom=True)
+            },
+            interaction_range=capabilities.interaction_range,
+            supported_devices=capabilities.supported_devices,
+            length_unit=capabilities.length_unit,
+            atomic_types=capabilities.atomic_types,
+            dtype=capabilities.dtype,
+        )
+        wrapper = AtomisticModel(self, metadata, new_capabilities)
+        print("saving to {}/{}.pt".format(path, name))
+        wrapper.save("{}/{}.pt".format(path, name), collect_extensions=f"{path}/extensions")
+
 
 class Wrapper(torch.nn.Module):
     def __init__(self, model, zmin, zmax, nlistoptions):
@@ -111,6 +159,7 @@ if __name__ == "__main__":
     wrapper.save_model(model.metadata(), model.capabilities(), path='.', name=f'soap_wrapper_zmin{zmin}_zmax{zmax}')
     #wrapper = load_atomistic_model(f'./soap_wrapper_zmin{zmin}_zmax{zmax}.pt', extensions_directory='./extensions')
     exit() 
+    import vesin
     from ase.io import read, write
     #structures = read('/Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/data/icemeltinterface/nobias/positions.lammpstrj', index=':')
     structures = read('/Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/data/icemeltinterface/nobias/short.lammpstrj', index=':')
@@ -119,11 +168,10 @@ if __name__ == "__main__":
     wrapper = load_atomistic_model(f'./soap_wrapper_zmin{zmin}_zmax{zmax}.pt', extensions_directory='./extensions')
     systems_new = []
     for i, system in enumerate(systems):
-
+        
         #atoms = structures[i]
         nlistoptions = wrapper.requested_neighbor_lists()[0]
-        print(nlistoptions)
-        
+        #print(nlistoptions)
         nlist = vesin.NeighborList(cutoff=nlistoptions.cutoff, full_list=nlistoptions.full_list) 
         i, j, S, D = nlist.compute(
             points=system.positions,

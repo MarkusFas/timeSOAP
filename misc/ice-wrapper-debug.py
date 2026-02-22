@@ -18,6 +18,54 @@ import argparse
 from pathlib import Path
 from torch.profiler import record_function
 
+class Wrapper_per_atom(torch.nn.Module):
+    def __init__(self, model, zmin, zmax, nlistoptions):
+        super().__init__()
+        self.model = model
+        self.zmin = zmin
+        self.zmax = zmax
+        self.nlistoptions = nlistoptions
+        
+    def forward(
+        self,
+        systems: List[System],
+        outputs: Dict[str, ModelOutput],
+        selected_atoms: Optional[Labels],
+    ) -> Dict[str, TensorMap]:
+
+        outputs = {
+            "features": ModelOutput(per_atom=False),
+            "features/per_atom": ModelOutput(per_atom=True),
+        }
+        if selected_atoms is None:
+            return self.model(systems, outputs, selected_atoms) 
+
+        pos = systems[0].positions[selected_atoms.values[:,1]]
+        mask = (pos[:, 2] > self.zmin) & (pos[:, 2] < self.zmax)
+        newselected_atoms = Labels(
+            names=selected_atoms.names,
+            values=selected_atoms.values[mask],
+        )
+        return self.model(systems, outputs, newselected_atoms)
+
+    def requested_neighbor_lists(self):
+        return self.nlistoptions
+    
+    def save_model(self, metadata, capabilities, path='.', name='wrapper'):
+        new_capabilities = ModelCapabilities(
+            outputs={"features": ModelOutput(per_atom=False),
+                     "features/per_atom": ModelOutput(per_atom=True)
+            },
+            interaction_range=capabilities.interaction_range,
+            supported_devices=capabilities.supported_devices,
+            length_unit=capabilities.length_unit,
+            atomic_types=capabilities.atomic_types,
+            dtype=capabilities.dtype,
+        )
+        wrapper = AtomisticModel(self, metadata, new_capabilities)
+        print("saving to {}/{}.pt".format(path, name))
+        wrapper.save("{}/{}.pt".format(path, name), collect_extensions=f"{path}/extensions")
+
 
 class Wrapper(torch.nn.Module):
     def __init__(self, model, zmin, zmax, nlistoptions):
@@ -32,29 +80,58 @@ class Wrapper(torch.nn.Module):
             systems: List[System],
             selected_atoms: Optional[Labels]
     ) -> Labels:
-        if selected_atoms is None:
-            pos = systems[0].positions
-            mask = (pos[:, 2] > self.zmin) & (pos[:, 2] < self.zmax)
-            indices = torch.arange(len(pos))
-            if len(indices[mask]) == 0:
+        with record_function("+++++++++++++ create_selection"):
+            if selected_atoms is None:
+                print('selected_atoms None')
+                pos = systems[0].positions
+                mask = (pos[:, 2] > self.zmin) & (pos[:, 2] < self.zmax)
+                indices = torch.arange(len(pos))
+                print(indices[mask])
+                if len(indices[mask]) == 0:
+                    newselected_atoms = Labels(
+                        names=["system", "atom"],
+                        values=torch.tensor([[0, int(i)] for i in [0]]),
+                    )
+                    return newselected_atoms
+
                 newselected_atoms = Labels(
                     names=["system", "atom"],
-                    values=torch.tensor([[0, int(i)] for i in [0]]),
+                    values=torch.tensor([[0, int(i)] for i in indices[mask]]),
                 )
-                return newselected_atoms
+            else:
+                print("CALLED WITH SELECTED ATOMS:", selected_atoms.values) 
+                pos = systems[0].positions[selected_atoms.values[:,1]]
+                mask = (pos[:, 2] > self.zmin) & (pos[:, 2] < self.zmax)
+                newselected_atoms = Labels(
+                    names=selected_atoms.names,
+                    values=selected_atoms.values[mask],
+                )
+            return newselected_atoms
 
-            newselected_atoms = Labels(
-                names=["system", "atom"],
-                values=torch.tensor([[0, int(i)] for i in indices[mask]]),
+    def get_features(
+        self,
+        systems: List[System],
+        outputs: Dict[str, ModelOutput],
+        selected_atoms: Labels,
+    ) -> Tuple[TensorMap, TensorMap]:
+
+        with record_function(f"+++++++ run inner model {len(selected_atoms)}"):
+            features = self.model(systems, outputs, selected_atoms)["features"]
+        
+        with record_function("+++++ should not be there"):
+            block = features.block()
+            """new = TensorBlock(
+                samples = block.samples,
+                values = torch.tensor([len(selected_atoms.values)],
+                    dtype=torch.float64).unsqueeze(-1),
+                properties = block.properties,
+                components=[],
             )
-        else:
-            pos = systems[0].positions[selected_atoms.values[:,1]]
-            mask = (pos[:, 2] > self.zmin) & (pos[:, 2] < self.zmax)
-            newselected_atoms = Labels(
-                names=selected_atoms.names,
-                values=selected_atoms.values[mask],
-            )
-        return newselected_atoms
+            cv = TensorMap(
+                keys=Labels("_", torch.tensor([[0]])),
+                blocks=[new],
+            )"""
+        return features, features
 
     def forward(
         self,
@@ -63,9 +140,22 @@ class Wrapper(torch.nn.Module):
         selected_atoms: Optional[Labels],
     ) -> Dict[str, TensorMap]:
         
+        outputs = {
+            "features": ModelOutput(per_atom=False),
+            "features/per_atom": ModelOutput(per_atom=True),
+        }
+        #if selected_atoms is None:
+        #    return self.model(systems, outputs, selected_atoms) 
+
+        #pos = systems[0].positions[selected_atoms.values[:,1]]
+        #mask = (pos[:, 2] > self.zmin) & (pos[:, 2] < self.zmax)
+        #newselected_atoms = Labels(
+        #    names=selected_atoms.names,
+        #    values=selected_atoms.values[mask],
+        #)
         newselected_atoms = self.pre_selected(systems, selected_atoms)
-        features = self.model(systems, outputs, newselected_atoms)
-        return features
+        features, cv = self.get_features(systems, outputs, newselected_atoms)
+        return {"features": features, "features/per_atom": cv}
 
     def requested_neighbor_lists(self):
         return self.nlistoptions
@@ -111,6 +201,7 @@ if __name__ == "__main__":
     wrapper.save_model(model.metadata(), model.capabilities(), path='.', name=f'soap_wrapper_zmin{zmin}_zmax{zmax}')
     #wrapper = load_atomistic_model(f'./soap_wrapper_zmin{zmin}_zmax{zmax}.pt', extensions_directory='./extensions')
     exit() 
+    import vesin
     from ase.io import read, write
     #structures = read('/Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/data/icemeltinterface/nobias/positions.lammpstrj', index=':')
     structures = read('/Users/markusfasching/EPFL/Work/project-SOAP/scripts/SOAP-time-code/data/icemeltinterface/nobias/short.lammpstrj', index=':')
@@ -119,11 +210,10 @@ if __name__ == "__main__":
     wrapper = load_atomistic_model(f'./soap_wrapper_zmin{zmin}_zmax{zmax}.pt', extensions_directory='./extensions')
     systems_new = []
     for i, system in enumerate(systems):
-
+        
         #atoms = structures[i]
         nlistoptions = wrapper.requested_neighbor_lists()[0]
-        print(nlistoptions)
-        
+        #print(nlistoptions)
         nlist = vesin.NeighborList(cutoff=nlistoptions.cutoff, full_list=nlistoptions.full_list) 
         i, j, S, D = nlist.compute(
             points=system.positions,

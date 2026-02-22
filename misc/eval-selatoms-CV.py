@@ -77,40 +77,7 @@ if __name__ == "__main__":
     structures = read(trj_name, index='::{}'.format(parser.parse_args().nskip))
     systems = get_systems(structures)
 
-    selected_atoms = Labels(
-            names=["system", "atom"],
-            values=torch.tensor([[0, j] for j in np.arange(0, len(structures[0]), 3)], dtype=torch.int32),)
-        
-    eval_options = ModelEvaluationOptions(
-                length_unit='',
-                outputs={"features": ModelOutput(per_atom=False), 
-                        "features/per_atom": ModelOutput(per_atom=False)
-                },
-                selected_atoms=selected_atoms,
-            )
-    CVs = []
-    CVs_per_atom = []
-    sel_atoms = []
-    for system in systems:
-        print('start profiling')
-        with torch.profiler.profile(
-                activities=[torch.profiler.ProfilerActivity.CPU],
-        ) as prof:
-            cv = CVmodel(
-                systems=[system],
-                options=eval_options,
-                check_consistency=False,
-            )
-            CVs.append(cv['features'].block().values)
-            CVs_per_atom.append(cv['features/per_atom'].block().values)
-        print(prof.key_averages().table(sort_by="cpu_time_total"))
-            #sel_atoms.append(cv['features/per_atom'].block().samples.values)
-
-    N = len(structures)
-    CVperatom = [Cpa[:,0].numpy() for Cpa in CVs_per_atom]
-    print(CVs_per_atom)
-    exit() 
-    indices = [1,10,13,16,22,40,43,106,109,112,118,121,136,139,142,433,436,439,451,463,676,685,691,694,703,706,712,823,835,838,850,853,1018,1021,1024,1030,1033,1048,1051,1054,1204,1207,1210,1213,1219,1222,1231,1234,1357,1360,1366,1369,1384,1387,1390,1738,1741,1744,1753,1768,1771,1774,1882,1885,1888,1894,1897,1912,1918,1924,1939,1951,2314,2317,2320,2326,2329,2344,2347,2350,2698,2701,2704,2710,2731,3028,3031,3037,3043,3046,3061,3313,3316,3340,3343,3346,3349,3412,3556,3571,3583,3589,3610,3613,3616,3622,3625,3640,3643,3844,3856,3859,3868,3874,4129,4156,4162,4165,4168,4186,4189,4192,4198,4216,4219,4222,4243,4246,4252,4255,4258,4261,4516,4519,4522,4540,4546,4549,4810,4813,4816,4822,4825,4840,4843,4846,5050,5053,5056,5062,5080,5083,5086,5338,5341,5344,5350,5353,5371,5473,5476,5479,5482,5491,5494,5497,5506,5533,5536,5542,5560,5563,5566,5674,5677,5680,5686,5689,5704,5707,5866,5869,5872,5878,5881,5896,5899,5902,5953,5956,5983,5986,5998,6097,6100,6103,6109,6115,6130]
+    indices = np.array([1,10,13,16,22,40,43,106,109,112,118,121,136,139,142,433,436,439,451,463,676,685,691,694,703,706,712,823,835,838,850,853,1018,1021,1024,1030,1033,1048,1051,1054,1204,1207,1210,1213,1219,1222,1231,1234,1357,1360,1366,1369,1384,1387,1390,1738,1741,1744,1753,1768,1771,1774,1882,1885,1888,1894,1897,1912,1918,1924,1939,1951,2314,2317,2320,2326,2329,2344,2347,2350,2698,2701,2704,2710,2731,3028,3031,3037,3043,3046,3061,3313,3316,3340,3343,3346,3349,3412,3556,3571,3583,3589,3610,3613,3616,3622,3625,3640,3643,3844,3856,3859,3868,3874,4129,4156,4162,4165,4168,4186,4189,4192,4198,4216,4219,4222,4243,4246,4252,4255,4258,4261,4516,4519,4522,4540,4546,4549,4810,4813,4816,4822,4825,4840,4843,4846,5050,5053,5056,5062,5080,5083,5086,5338,5341,5344,5350,5353,5371,5473,5476,5479,5482,5491,5494,5497,5506,5533,5536,5542,5560,5563,5566,5674,5677,5680,5686,5689,5704,5707,5866,5869,5872,5878,5881,5896,5899,5902,5953,5956,5983,5986,5998,6097,6100,6103,6109,6115,6130])-1
     selected_atoms = Labels(
         names=["system", "atom"],
         values=torch.tensor([[0,j] for j in indices]),
@@ -135,11 +102,11 @@ if __name__ == "__main__":
             cv = CVmodel(
                 systems=[system],
                 options=eval_options,
-                check_consistency=True,
+                check_consistency=False,
             )
             CVs.append(cv['features'].block().values)
-            CVs_per_atom.append(cv['features/peratom'].block().values)
-        print(prof.key_averages().table(sort_by="cuda_time_total"))
+            CVs_per_atom.append(cv['features/per_atom'].block().values)
+        print(prof.key_averages().table(sort_by="cpu_time_total"))
             #sel_atoms.append(cv['features/per_atom'].block().samples.values)
     
 
