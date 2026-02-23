@@ -99,17 +99,17 @@ if __name__ == "__main__":
         )
         CVs.append(cv['features'].block().values)
         CVs_per_atom.append(cv['features/per_atom'].block().values)
+        sel_atoms.append(cv['features/per_atom'].block().samples.values)
 
     N = len(structures)
     CVperatom = [Cpa[:,0].numpy() for Cpa in CVs_per_atom]
-    print(CVs_per_atom)
-
 
     #torch.stack(CVs_per_atom, dim=0).squeeze().numpy()
     ins = [sel[:,1] for sel in sel_atoms]
-    CVperatom_full = np.zeros((N, len(structures[0])))
-    for f in range(N):
-        CVperatom_full[f, ins[f]] = CVperatom[f]
+    print("ins", ins)
+    #CVperatom_full = np.zeros((N, len(structures[0])))
+    #for f in range(N):
+    #    CVperatom_full[f, ins[f]] = CVperatom[f]
 
     time=[]
     #for atoms in traj:
@@ -126,7 +126,7 @@ if __name__ == "__main__":
     properties = {
             'time': time,
             'cv_peratom': {"values": [i for j in CVperatom for i in j], "target": "atom"},
-            'cv': {"values": CV, "target": "structure"},
+            'cv': {"values": CVs, "target": "structure"},
     }
 
     settings = chemiscope.quick_settings(trajectory=True, structure_settings={
