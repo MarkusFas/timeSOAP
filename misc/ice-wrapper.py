@@ -71,18 +71,7 @@ class Wrapper(torch.nn.Module):
         return self.nlistoptions
 
     def save_model(self, metadata, capabilities, path='.', name='wrapper'):
-        new_capabilities = ModelCapabilities(
-            outputs={
-                "features": ModelOutput(per_atom=False),
-                "features/per_atom": ModelOutput(per_atom=False),
-            },
-            interaction_range=capabilities.interaction_range,
-            supported_devices=capabilities.supported_devices,
-            length_unit=capabilities.length_unit,
-            atomic_types=capabilities.atomic_types,
-            dtype=capabilities.dtype,
-        )
-        wrapper = AtomisticModel(self, metadata, new_capabilities)
+        wrapper = AtomisticModel(self, metadata, capabilities)
         print("saving to {}/{}.pt".format(path, name))
         wrapper.save("{}/{}.pt".format(path, name), collect_extensions=f"{path}/extensions")
 
