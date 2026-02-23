@@ -16,6 +16,9 @@ from metatomic.torch import (
     systems_to_torch,
 )
 from featomic.torch import SoapPowerSpectrum
+from torch.profiler import record_function
+import metatensor.torch as mts
+
 
 class SOAP_CV(torch.nn.Module):
     def __init__(self, cutoff, max_angular, max_radial, centers, neighbors, projection_matrix=None):
@@ -87,17 +90,23 @@ class SOAP_CV(torch.nn.Module):
             samples = Labels(["system"], torch.zeros((0, 1), dtype=torch.int32))
             samples_per_atom = Labels(["system", "atom"], torch.zeros((0,2), dtype=torch.int32))
         else:
+            if selected_atoms is not None:
+                mts.save('selected_samples.pt', selected_atoms)
+                mts.save('selected_keys.pt', self.selected_keys)
+                #mts.save('systems.pt', systems)
             soap = self.calculator(systems, selected_samples=selected_atoms, selected_keys=self.selected_keys)
             soap = soap.keys_to_samples("center_type")
             soap = soap.keys_to_properties(["neighbor_1_type", "neighbor_2_type"])#self.neighbor_type_pairs)
 
             soap_block = soap.block()
-    
+
+        #with record_function("+++++ featomic einsum"):
             projected = torch.einsum('ij,jk->ik',(soap_block.values - self.mu), self.projection_matrix[:,self.proj_dims])#, dtype=torch.float64)
 
             samples_per_atom = soap_block.samples.remove("center_type")
             samples = Labels(["system"], torch.zeros((1, 1), dtype=torch.int32))
-            
+         
+            #with record_function("+++++ featomic mean CV"):
             projected_mean = torch.mean(projected, dim=0)
             projected_mean = projected_mean.unsqueeze(0)
 
@@ -158,7 +167,8 @@ class SOAP_CV(torch.nn.Module):
             dtype="float64",
         )
         
-        metadata = ModelMetadata(name="SOAP based CV", authors=['SmoothSOAP'], description='Hyperparameters in extra', extra=self.hypers)
+        metadata = ModelMetadata(name="Projection to ICA", authors=['SmoothSOAP'], description='Hyperparameters in extra', extra=self.hypers)
+        #print(metadata)
         model = AtomisticModel(self, metadata, capabilities)
         model.save("{}/{}.pt".format(path,name), collect_extensions=f"{path}/extensions")
         print(f'model saved at {path}/{name}.pt')

@@ -46,10 +46,6 @@ def split_train_test(trj,trj_test,kwargs, is_shared,randomseed=7):
         test_atoms = N_test
     if test_atoms is None:
         test_atoms = train_atoms
-    #print('Ntrain, Ntest: ', N_train, N_test)
-    #print('Train atoms: {}'.format(train_atoms))        
-    #print('Test atoms: {}'.format(test_atoms))        
-    #train_atoms = selected_atoms
     train_atoms = sorted(train_atoms)
     test_atoms = sorted(test_atoms)
     #print("WARNING SAME TEST AND TRAIN ATOMS")
@@ -106,8 +102,6 @@ def run_simulation(trj, trj_test, methods_intervals, **kwargs):
                 print('Finished the prediction')
                 X = [proj.transpose(1,0,2) for proj in X]#centers T,N,P
        
-                #print('idealX',len(X),X[0].shape)
-     
                 # label the trajectories:
                 if kwargs['classify']['request']:
                     if kwargs['classify']['switch_index'] is not None:
