@@ -14,7 +14,7 @@ from smoothsoap.classifier.Logreg import run_logistic_regression
 import torch
 from metatomic.torch import systems_to_torch, ModelEvaluationOptions, ModelOutput, load_atomistic_model
 from metatensor.torch import Labels
-
+import datetime
 
 def split_train_test(trj,trj_test,kwargs, is_shared,randomseed=7):
     random.seed(randomseed)
@@ -46,10 +46,6 @@ def split_train_test(trj,trj_test,kwargs, is_shared,randomseed=7):
         test_atoms = N_test
     if test_atoms is None:
         test_atoms = train_atoms
-    #print('Ntrain, Ntest: ', N_train, N_test)
-    #print('Train atoms: {}'.format(train_atoms))        
-    #print('Test atoms: {}'.format(test_atoms))        
-    #train_atoms = selected_atoms
     train_atoms = sorted(train_atoms)
     test_atoms = sorted(test_atoms)
     #print("WARNING SAME TEST AND TRAIN ATOMS")
@@ -106,8 +102,6 @@ def run_simulation(trj, trj_test, methods_intervals, **kwargs):
                 print('Finished the prediction')
                 X = [proj.transpose(1,0,2) for proj in X]#centers T,N,P
        
-                #print('idealX',len(X),X[0].shape)
-     
                 # label the trajectories:
                 if kwargs['classify']['request']:
                     if kwargs['classify']['switch_index'] is not None:
@@ -136,8 +130,8 @@ def run_simulation(trj, trj_test, methods_intervals, **kwargs):
                                         'output_params', 'descriptor', 'SOAP_params', 'ridge', 
                                         'ridge_save', 'model_proj_dims', 'i_pca', 'classify', 'base_path']
                         run_specific={'method':method.name, 'interval':method.interval,
-                                      'descriptor': method.descriptor, 'label':method.label 
-                                      }
+                                      'descriptor': method.descriptor, 'label':method.label, 
+                                      'time':datetime.datetime.now()}
                         savekwargs={key: kwargs[key] for key in keys_to_save}
                         method.descriptor.update_hypers(savekwargs)
                         method.descriptor.update_hypers(run_specific)
@@ -161,27 +155,15 @@ def run_simulation(trj, trj_test, methods_intervals, **kwargs):
                         method.descriptor.set_projection_dims(dims=kwargs['model_proj_dims'])
                         method.descriptor.set_projection_mu(mu=trans.mu)
                         method.descriptor.eval()   
-                        #method.descriptor.save_model(path=method.root+f'/interval_{method.interval}/', name='model_soap')   
-                        #print(f'saved model at {method.root}'+f'/interval_{method.interval}/')    
-                        #print('projdims',method.descriptor.proj_dims)   
                         method.descriptor.save_model(path=method.label, name='model_soap') 
-                        #method.transformations[0].save()
     
                         #for reloading
-                        #print('reload',np.arange(trans.eigvecs.shape[0]), trans.eigvecs.shape)
                         method.descriptor.set_projection_dims(dims=list(range(4))) # 4 is number of saved n_components for pca
                         method.descriptor.update_hypers({'model_proj_dims':np.arange(4)})
                         method.descriptor.set_projection_mu(mu=trans.mu)
                         method.descriptor.eval()
-                        #print('projdims',method.descriptor.proj_dims)   
-                        #method.descriptor.save_model(path=method.root+f'/interval_{method.interval}/', name='model_soap')   
-                        #print(f'saved model at {method.root}'+f'/interval_{method.interval}/')    
                         method.descriptor.save_model(path=method.label, name='model_soap_alldim')
     
-                        #print('kwargs', kwargs)
-                        #print('kwargs', dir(method))
-                        #4 Post processing
-                        #print('---------xshape', len(X), X[0].shape)
                         post_processing(X, trj_predict, test_atoms, method.name, method.label, method.interval, **kwargs)
                         if kwargs["ridge"]:
                             post_processing(X_ridge, trj_predict, test_atoms, method.name, method.label + f'_ridge', method.interval, **kwargs)
@@ -203,7 +185,6 @@ def run_simulation(trj, trj_test, methods_intervals, **kwargs):
 
                 savedX=X.copy()
 
-    #if True: # load_model=True
     else: # load_model=True
         print('LOADING OF MODELS HAS BEEN REQUESTED, MANY KEYWORDS IN THE INPUT WILL BE IGNORED')
         models = []  
@@ -237,7 +218,6 @@ def run_simulation(trj, trj_test, methods_intervals, **kwargs):
             )
 
             
-#            print('selection',atomtypes, selected_atoms) 
             opts = ModelEvaluationOptions(
                     length_unit="A",
                     outputs={"features": ModelOutput(quantity="", per_atom=False), "features/per_atom":ModelOutput(quantity="", per_atom=True)}, #True
