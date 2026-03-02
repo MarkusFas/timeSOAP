@@ -36,12 +36,13 @@ def pcatransform(X, NCOMPONENTS=4):
     return eigvals, eigvecs, projected, avg_cov
 
 class PCA_obj:
-    def __init__(self, n_components, label):
+    def __init__(self, n_components, label, eps2factor=None):
         COV = None
         self.eigvecs = None
         self.eigvals = None
         self.n_components = n_components
         self.run_label = label
+        self.eps2_factor = eps2factor
 
     def compute_eigen(self, mu, COV):
         eps = 1e-10
@@ -54,17 +55,21 @@ class PCA_obj:
     def solve_GEV(self, mu, COV_1, COV_2):
         eps1 = 1E-8 * np.trace(COV_1) / COV_1.shape[0]
         COV_1_reg = 0.5*(COV_1 + COV_1.T) + eps1*np.eye(COV_1.shape[0])
-        
-        factor = 1E-8
-        while(factor <= 1E-5):
-            eps2 = factor * np.trace(COV_2) / COV_2.shape[0]
+        if self.eps2factor is None:
+            factor = 1E-8
+            while(factor <= 1E-5):
+                eps2 = factor * np.trace(COV_2) / COV_2.shape[0]
+                COV_2_reg = 0.5*(COV_2 + COV_2.T) + eps2*np.eye(COV_2.shape[0])
+                try:
+                    self.eigvals, self.eigvecs = eigh(COV_1_reg, COV_2_reg)
+                    break
+                except np.linalg.LinAlgError:
+                    factor *= 10
+        else:
+            eps2 = self.eps2factor * np.trace(COV_2) / COV_2.shape[0]
             COV_2_reg = 0.5*(COV_2 + COV_2.T) + eps2*np.eye(COV_2.shape[0])
-            try:
-                self.eigvals, self.eigvecs = eigh(COV_1_reg, COV_2_reg)
-                break
-            except np.linalg.LinAlgError:
-                factor *= 10
-
+            self.eigvals, self.eigvecs = eigh(COV_1_reg, COV_2_reg)
+            factor = self.eps2factor
         print(f'used a factor of {factor} for regularization')
         # reorder so that largest EV is first
         self.mu = mu

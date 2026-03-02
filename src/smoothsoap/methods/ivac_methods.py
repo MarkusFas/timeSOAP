@@ -318,12 +318,12 @@ class TILDA(FullMethodBase):
 class IVAC(FullMethodBase):
 
 
-    def __init__(self, descriptor, interval, max_lag, min_lag, lag_step, ridge_alpha, root):
+    def __init__(self, descriptor, interval, max_lag, min_lag, lag_step, ridge_alpha, root, eps2factor):
         self.name = 'IVAC'
         self.max_lag = max_lag
         self.min_lag = min_lag
         self.lag_step = lag_step
-        super().__init__(descriptor, interval, lag='ivac', root=root, sigma=0, ridge_alpha=ridge_alpha, method=self.name)
+        super().__init__(descriptor, interval, lag='ivac', root=root, sigma=0, ridge_alpha=ridge_alpha, method=self.name, eps2factor=eps2factor)
 
     def compute_COV(self, traj):
         """

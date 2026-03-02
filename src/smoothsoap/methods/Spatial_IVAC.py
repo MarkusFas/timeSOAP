@@ -7,7 +7,7 @@ from featomic.torch import SoapPowerSpectrum
 import numpy as np
 from tqdm import tqdm
 from scipy.ndimage import gaussian_filter
-from vesin import NeighborList
+from vesin.torch import NeighborList
 from memory_profiler import profile
 from sklearn.linear_model import Ridge
 
@@ -161,13 +161,11 @@ class SpatialIVAC(FullMethodBase):
 
 class SpatialIVACnorm(FullMethodBase):
 
-    def __init__(self, descriptor, interval, ridge_alpha, spatial_cutoff, root):
+    def __init__(self, descriptor, interval, ridge_alpha, spatial_cutoff, root, eps2factor):
         self.name = 'SpatialIVACnorm'
         self.spatial_cutoff = spatial_cutoff
-        super().__init__(descriptor, interval, lag=0, root=root, sigma=0, ridge_alpha=ridge_alpha, method=self.name)
+        super().__init__(descriptor, interval, lag=0, root=root, sigma=0, ridge_alpha=ridge_alpha, method=self.name, eps2factor=eps2factor)
         self.label = self.label + f'cut_{self.spatial_cutoff}'
-
-
 
     def make_neighborlist(self, cutoff):
         self.nlist = NeighborList(cutoff=cutoff, full_list=True) # TODO: debatable if full lsit or not
@@ -205,7 +203,7 @@ class SpatialIVACnorm(FullMethodBase):
             sum_soaps[atom_type_idx] += soap[atom_type].sum(axis=0)
             cov_t[atom_type_idx] += np.einsum("ia,ib->ab", soap[atom_type], soap[atom_type]) #sum over all same atoms (have already summed over all times before) 
             a,b,S,d = self.spatial_correlate(system, atom_type) # return nl indexes of center, neighbor and dist
-            dist = 1/(4.0*np.pi*d**2)
+            dist = 1/(4.0*np.pi*d.numpy()**2)
             sum_soaps_dist[atom_type_idx] += np.sum(dist)
             sum_soaps_spat[atom_type_idx] += np.einsum('m,mk->k', dist, soap[a,:] + soap[b,:]) / 2  # weighted mean over all pairs
             cov_t_cum[atom_type_idx] += np.einsum("n, ni,nj->ij", dist, soap[a,:], soap[b,:]) #sum over all same atoms (have already summed over all times before) 

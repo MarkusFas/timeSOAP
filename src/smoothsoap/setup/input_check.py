@@ -263,80 +263,6 @@ def setup_simulation(**kwargs):
 
     print("Parameters checked. Simulation is initialized...")
     methods_intervals = []  # nested list: intervals x methods
-    lag = kwargs.get("lag")
-    for interval in kwargs.get('interval'):
-        used_methods = []
-        for lag in kwargs.get('lag'):
-            for sigma in kwargs.get('sigma'):
-                for spatial_cutoff in kwargs.get('spatial_cutoff'):
-                    for ridge_alpha in kwargs.get('ridge_alpha'):
-                        for n_cumulants in kwargs.get('n_cumulants'):
-                            for method in opt_methods:
-                                base: Path = kwargs.get("base_path")
-                                run_dir = (
-                                    base
-                                    / "results"
-                                    / system
-                                    / version
-                                    / kwargs.get("descriptor")
-                                    / descriptor_id
-                                    / specifier
-                                    
-                                )
-                                run_dir.mkdir(parents=True, exist_ok=True)
-                                # Instantiate method
-                                method_obj = None
-                                if method.upper() == 'PCA':
-                                    method_obj = PCA(descriptor, interval, ridge_alpha, run_dir)
-                                elif method.upper() == 'IVAC':
-                                    #TODO: input checks for the lag parameters
-                                    max_lag = kwargs.get("max_lag")
-                                    min_lag = kwargs.get("min_lag")
-                                    lag_step = kwargs.get("lag_step")
-                                    method_obj = IVAC(descriptor, interval, max_lag, min_lag, lag_step, ridge_alpha, run_dir)
-                                elif method.upper() == 'TEMPPCA':
-                                    method_obj = TempPCA(descriptor, interval, ridge_alpha, run_dir)
-                                elif method.upper() == 'PCAFULL':
-                                    method_obj = PCAfull(descriptor, interval, ridge_alpha, run_dir)
-                                elif method.upper() == 'PCATEST':
-                                    method_obj = PCAtest(descriptor, interval, ridge_alpha, run_dir)
-                                elif method.upper() == 'SPATIALPCA':
-                                    #TODO add input check
-                                    method_obj = SpatialPCA(descriptor, interval, sigma, spatial_cutoff, ridge_alpha, run_dir)
-                                elif method.upper() == 'DISTINCTPCA':
-                                    method_obj = DistinctPCA(descriptor, interval, ridge_alpha, run_dir)
-                                elif method.upper() == 'SPATIALTEMPPCA':
-                                    #TODO add input check
-                                    method_obj = SpatialTempPCA(descriptor, interval, sigma, spatial_cutoff, ridge_alpha, run_dir)
-                                elif method.upper() == 'PCATIMENORM':
-                                    method_obj = PCA_time_norm(descriptor, interval, ridge_alpha, run_dir)
-                                elif method.upper() == 'LDA':
-                                    method_obj = LDA(descriptor, interval, ridge_alpha, run_dir)
-                                elif method.upper() == 'TICA':
-                                    method_obj = TICA(descriptor, interval, lag, sigma, ridge_alpha, run_dir)
-                                elif method.upper() == 'TILDA':
-                                    method_obj = TILDA(descriptor, interval, lag, sigma, ridge_alpha, run_dir)
-                                elif method.upper() == 'SCIKITPCA':
-                                    method_obj = ScikitPCA(descriptor, interval, ridge_alpha, run_dir)
-                                elif method.upper() == 'PCANORM':
-                                    method_obj = PCAnorm(descriptor, interval, ridge_alpha, run_dir)
-                                elif method.upper() == 'CUMULANTPCA':
-                                    descriptor = CumulantSOAP_CV(SOAP_cutoff, SOAP_max_angular, SOAP_max_radial, centers, neighbors, n_cumulants)
-                                    method_obj = CumulantPCA(descriptor, interval, ridge_alpha, n_cumulants, run_dir)
-                                elif method.upper() == 'CUMULANTIVAC':
-                                    max_lag = kwargs.get("max_lag")
-                                    min_lag = kwargs.get("min_lag")
-                                    lag_step = kwargs.get("lag_step")
-                                    descriptor = CumulantSOAP_CV(SOAP_cutoff, SOAP_max_angular, SOAP_max_radial, centers, neighbors, n_cumulants)
-                                    method_obj = CumulantIVAC(descriptor, interval, max_lag, min_lag, lag_step, ridge_alpha, n_cumulants, run_dir)
-                                elif method.upper() == 'SPATIALIVAC':
-                                    n_cumulants = 1
-                                    method_obj = SpatialIVAC(descriptor, interval, ridge_alpha, spatial_cutoff, sigma, run_dir)
-                                elif method.upper() == 'SPATIALIVACNORM':
-                                    n_cumulants = 1
-                                    method_obj = SpatialIVACnorm(descriptor, interval, ridge_alpha, spatial_cutoff, run_dir)
-                                else:
-                                    raise NotImplementedError(f"Method must be one of {implemented_opt}, got {method}")
 
     if kwargs['model_load']!=None:
         model_paths = kwargs["model_load"]
@@ -349,45 +275,10 @@ def setup_simulation(**kwargs):
             raise TypeError(f"'{model_paths}' must be a str or a list of str, got {type(model_paths).__name__}")
         for model_path in model_paths:
             if isinstance(model_path, (str, bytes, Path)):
-                print(model_path)
                 if not os.path.exists(model_path):
                     raise TypeError(f"given model path '{model_path}' does not exist")
-
-
-
-#    if kwargs['trafo_load']!=False:
-#        trafo_paths = kwargs["trafo_load"]
-#        if isinstance(trafo_paths, str):
-#            trafo_paths = [trafo_paths]
-#        elif isinstance(trafo_paths, list):
-#            if not all(isinstance(name, str) for name in trafo_paths):
-#                raise TypeError(f"All elements of '{trafo_paths}' must be strings.")
-#        else:
-#            raise TypeError(f"'{trafo_paths}' must be a str or a list of str, got {type(trafo_paths).__name__}")
-#    
-#        for trafo_path in trafo_paths:
-#            if isinstance(trafo_path, (str, bytes, Path)):
-#                print(trafo_path)
-#                if not os.path.exists(trafo_path):
-#                    raise TypeError(f"given model path '{trafo_path}' does not exist")
-#                import torch 
-#                #trafo = torch.load(f'{trafo_path}_pca_eigvecs_timeavg.pt')
-#                #print(trafo)
-#                #print(trafo.shape)
-#                print('kwargs',kwargs)
-#                #trafo = torch.jit.load(trafo_path)
-#                print(f'loading transformation(s) from {trafo_paths}')
-#                from smoothsoap.transformations.PCAtransform import PCA_obj  
-#                trans=PCA_obj(n_components=5, label=trafo_path)
-#                trans.load()
-#                print(trans.eigvecs)
-#                Y = np.einsum('ij,jk->ik',(X - self.mu), self.eigvecs[:,:self.n_components])
- 
-
     else: # model_load==None
-
         model_paths = []
-
         lag = kwargs.get("lag")
         for interval in kwargs.get('interval'):
             used_methods = []
@@ -418,7 +309,8 @@ def setup_simulation(**kwargs):
                                         max_lag = kwargs.get("max_lag")
                                         min_lag = kwargs.get("min_lag")
                                         lag_step = kwargs.get("lag_step")
-                                        method_obj = IVAC(descriptor, interval, max_lag, min_lag, lag_step, ridge_alpha, run_dir)
+                                        sigma2factor = kwargs.get("sigma2factor")
+                                        method_obj = IVAC(descriptor, interval, max_lag, min_lag, lag_step, ridge_alpha, run_dir, sigma2factor)
                                     elif method.upper() == 'TEMPPCA':
                                         method_obj = TempPCA(descriptor, interval, ridge_alpha, run_dir)
                                     elif method.upper() == 'PCAFULL':
@@ -457,16 +349,14 @@ def setup_simulation(**kwargs):
                                         method_obj = SpatialIVAC(descriptor, interval, ridge_alpha, spatial_cutoff, sigma, run_dir)
                                     elif method.upper() == 'SPATIALIVACNORM':
                                         n_cumulants = 1
-                                        method_obj = SpatialIVACnorm(descriptor, interval, ridge_alpha, spatial_cutoff, run_dir)
+                                        sigma2factor = kwargs.get("sigma2factor")
+                                        method_obj = SpatialIVACnorm(descriptor, interval, ridge_alpha, spatial_cutoff, run_dir, sigma2factor)
                                     else:
                                         raise NotImplementedError(f"Method must be one of {implemented_opt}, got {method}")
     
                                     used_methods.append(method_obj)
-
-        methods_intervals.append(used_methods)
-
+            methods_intervals.append(used_methods)
         # TODO: check requested plots
-    
         # Pass nested lists to run_simulation
         print("Simulation is started...")
     run_simulation(trajs, test_trajs, methods_intervals, **kwargs)

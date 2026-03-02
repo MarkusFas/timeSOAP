@@ -14,7 +14,7 @@ DEFAULT_PARAMS = {
     "spatial_cutoff": 0,
     "train_selected_atoms": 1,
     "test_selected_atoms": None,
-
+    "sigma2factor": None,
     "input_params": {
         "fname": None,
         "indices": ":",
