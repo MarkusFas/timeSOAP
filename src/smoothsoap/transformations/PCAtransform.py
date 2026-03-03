@@ -37,12 +37,11 @@ def pcatransform(X, NCOMPONENTS=4):
 
 class PCA_obj:
     def __init__(self, n_components, label, eps2factor=None):
-        COV = None
         self.eigvecs = None
         self.eigvals = None
         self.n_components = n_components
         self.run_label = label
-        self.eps2_factor = eps2factor
+        self.eps2factor = eps2factor
 
     def compute_eigen(self, mu, COV):
         eps = 1e-10

@@ -63,7 +63,7 @@ def check_analysis_inputs(trajs, test_trajs, **kwargs):
             raise TypeError("all elements of 'lag' list must be integers")
     else:
         raise TypeError("lag must be an integer or list of integers")
-    
+
     sigmas = kwargs["sigma"]
     if isinstance(sigmas, float) or isinstance(sigmas, int):
         kwargs['sigma'] = [sigmas]
@@ -91,7 +91,15 @@ def check_analysis_inputs(trajs, test_trajs, **kwargs):
             raise TypeError("all elements of 'spatial_cutoff' list must be integers or floats")
     else:
         raise TypeError("spatial_cutoff must be an integer, float or list thereof")
-    
+
+    sigma2factor = kwargs["sigma2factor"]
+    if isinstance(sigma2factor, str):
+        try:
+            sigma2factor = float(sigma2factor)
+        except ValueError:
+            raise TypeError("sigma2factor must be a float")
+    kwargs["sigma2factor"] = sigma2factor
+
     if not isinstance(kwargs['train_selected_atoms'], list):
         if not isinstance(kwargs['train_selected_atoms'], int):
             raise TypeError("train_selected_atoms must be integer or list of integers")

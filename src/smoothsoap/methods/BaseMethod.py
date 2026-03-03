@@ -28,7 +28,7 @@ class FullMethodBase(ABC):
     the descriptor-specific covariance computation in `compute_COV()`.
     """
 
-    def __init__(self, descriptor, interval, lag, sigma, ridge_alpha, root, method=None):
+    def __init__(self, descriptor, interval, lag, sigma, ridge_alpha, root, method=None, eps2factor=None):
         self.interval = interval
         self.lag = lag
         self.sigma = sigma
@@ -36,6 +36,7 @@ class FullMethodBase(ABC):
         self.descriptor = descriptor
         self.transformations = None
         self.ridge_alpha = ridge_alpha
+        self.eps2factor = eps2factor
         dir = (
             root
             / method
@@ -46,7 +47,7 @@ class FullMethodBase(ABC):
         )
         dir.mkdir(parents=True, exist_ok=True)
         self.label = str((dir / self.descriptor.id))
-
+        
     # ------------------------------------------------------------------
     # Shared methods
     # ------------------------------------------------------------------
@@ -101,7 +102,7 @@ class FullMethodBase(ABC):
         self.cov2 = class_cov2 + between_cov2
 
         # Example: use PCA-based transformation for each center
-        self.transformations = [PCA_obj(n_components=4, label=self.label) for n in range(self.cov1.shape[0])]
+        self.transformations = [PCA_obj(n_components=4, label=self.label, eps2factor=self.eps2factor) for n in range(self.cov1.shape[0])]
 
         for i, trafo in enumerate(self.transformations):
             trafo.solve_GEV(self.mean[i], self.cov1[i], self.cov2[i])
