@@ -27,8 +27,15 @@ class Wrapper(torch.nn.Module):
         self.zmax = zmax
         self.nlistoptions = nlistoptions
     
+
+    def wrap(self, systems: List[System]):
+        cell = systems[0].cell
+        z = systems[0].positions[:, 2]
+        shift = ()//(cell[2, 2] - cell[2, 2])
+
+
     def pre_selected(
-            self, 
+            self,
             systems: List[System],
             selected_atoms: Optional[Labels]
     ) -> Labels:

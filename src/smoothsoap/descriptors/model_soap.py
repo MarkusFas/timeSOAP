@@ -280,7 +280,6 @@ class CumulantSOAP_CV(torch.nn.Module):
             projected = torch.zeros((0,1), dtype=torch.float64)
             samples = Labels(["system", "atom"], torch.zeros((0, 2), dtype=torch.int32))
             properties = Labels("soap_pca", torch.tensor(self.proj_dims, dtype=torch.int).unsqueeze(-1))
-            
         else:
             soap = self.calculator(systems, selected_samples=selected_atoms, selected_keys=self.selected_keys)
             soap = soap.keys_to_samples("center_type")

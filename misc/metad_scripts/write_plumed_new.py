@@ -6,12 +6,12 @@ import random
 
 plumed_fname = 'plumed.dat'
 selected_type = 8        # example, use the actual type for O in your system
-zmin, zmax = 60, 67
+zmin, zmax = 0, 200
 
 # Load the LAMMPS data file
 
-atoms = read(sys.argv[1], format="lammps-data")  # ASE Atoms object
-#atoms = read(sys.argv[1], format="gromacs")  # ASE Atoms object
+#atoms = read(sys.argv[1], format="lammps-data")  # ASE Atoms object
+atoms = read(sys.argv[1], format="gromacs")  # ASE Atoms object
 
 positions = atoms.get_positions()
 types = atoms.get_atomic_numbers()
@@ -21,10 +21,10 @@ unique_types = np.unique(types)
 
 # Collect indices by type (1-based for PLUMED)
 atom_indices_by_type = {t: np.where(types == t)[0] + 1 for t in unique_types}
-unique_types = [8,1] #[6,7,8,1] #drop virtual site
+unique_types = [8,1,74] #[6,7,8,1] #drop virtual site
 selected_atoms = [
     i + 1 for i, (t, pos) in enumerate(zip(types, positions))
-    if t == selected_type and zmin <= pos[2] <= zmax
+    if t == selected_type #and zmin <= pos[2] <= zmax
 ]
 #random.shuffle(selected_atoms) 
 print('selected 30/', len(selected_atoms))
