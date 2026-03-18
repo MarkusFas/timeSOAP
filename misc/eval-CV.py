@@ -72,6 +72,7 @@ if __name__ == "__main__":
     trj_name = parser.parse_args().trj
     nskip = parser.parse_args().nskip
     out_path = parser.parse_args().out
+
     CVmodel = load_atomistic_model(model_name, extensions_directory='.')
 
     structures = read(trj_name, index='::{}'.format(parser.parse_args().nskip))
@@ -103,7 +104,10 @@ if __name__ == "__main__":
 
     N = len(structures)
     CVperatom = [Cpa[:,0].numpy() for Cpa in CVs_per_atom]
-
+    
+    if out_path[-3:] == "txt":
+        np.savetxt(CVs, f'CV-{out_path}')
+        exit()
     #torch.stack(CVs_per_atom, dim=0).squeeze().numpy()
     ins = [sel[:,1] for sel in sel_atoms]
     print("ins", ins)
