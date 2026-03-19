@@ -66,8 +66,8 @@ class SOAP_CV(torch.nn.Module):
         soap = soap.keys_to_samples("center_type")
         soap = soap.keys_to_properties(["neighbor_1_type", "neighbor_2_type"])
         self.soap_block = soap.block()
-        return self.soap_block.values.numpy()
-
+        return self.soap_block.values
+    
     def forward(
         self,
         systems: List[System],
@@ -123,7 +123,7 @@ class SOAP_CV(torch.nn.Module):
             blocks=[block],
         )
         return {"features": cv, "features/per_atom": cv_per_atom}#, "soaps": soap }
-    
+
     def set_samples(self, selected_atoms):
         self.selected_samples = Labels(
             names=["atom"],
