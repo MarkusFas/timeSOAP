@@ -129,7 +129,7 @@ class FullMethodBase(ABC):
 
         self.selected_atoms = selected_atoms
         self.descriptor.set_samples(selected_atoms)
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
 
         projected_per_type = []
 
@@ -146,7 +146,7 @@ class FullMethodBase(ABC):
         return projected_per_type  # shape: (#centers ,N_atoms, T, latent_dim)
 
     def fit_ridge_nonincremental(self, traj):
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
         soap_block = self.descriptor.calculate(systems[:1], selected_samples=self.descriptor.selected_samples)
         print(soap_block.shape)
         first_soap = soap_block  
@@ -197,7 +197,7 @@ class FullMethodBase(ABC):
 
 
     def fit_ridge(self, traj):
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
         soap_block = self.descriptor.calculate(systems[:1])
         first_soap = soap_block  
         buffer = np.zeros((first_soap.shape[0], self.interval, first_soap.shape[1]))
@@ -239,7 +239,7 @@ class FullMethodBase(ABC):
     def predict_ridge(self, traj, selected_atoms):
         self.selected_atoms = selected_atoms
         self.descriptor.set_samples(selected_atoms)
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
        
         projected_per_type = []
 
@@ -303,7 +303,7 @@ class FullMethodBase(ABC):
 
         self.selected_atoms = selected_atoms
         self.descriptor.set_samples(selected_atoms)
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
         for i, trafo in enumerate(self.transformations):
             proj_sum = np.zeros(trafo.n_components)
             proj_scatter = np.zeros(trafo.n_components)
@@ -367,8 +367,7 @@ class FullMethodBase(ABC):
 
         self.selected_atoms = selected_atoms
         self.descriptor.set_samples(selected_atoms)
-        systems = systems_to_torch(traj, dtype=torch.float64)
-
+        systems = systems_to_torch(traj, dtype=torch.float32)
         for i, trafo in enumerate(self.transformations):
             proj_sum = np.zeros(trafo.n_components)
             proj_scatter = np.zeros(trafo.n_components)

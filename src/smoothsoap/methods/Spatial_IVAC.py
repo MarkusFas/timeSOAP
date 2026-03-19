@@ -58,7 +58,7 @@ class SpatialIVAC(FullMethodBase):
         cov_mu_t : np.ndarray, shape (n_species, n_features, n_features)
             Temporal covariance of SOAP descriptor means (fluctuations in time).
         """
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
         soap_block = self.descriptor.calculate(systems[:1])
         first_soap = soap_block
         first_soap_cum = self.descriptor.compute_cumulants(soap_block, 1)
@@ -237,7 +237,7 @@ class SpatialIVACnorm(FullMethodBase):
         cov_mu_t : np.ndarray, shape (n_species, n_features, n_features)
             Temporal covariance of SOAP descriptor means (fluctuations in time).
         """
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
         soap_block = self.descriptor.calculate(systems[:1])
         first_soap = soap_block
         first_soap_cum = self.descriptor.compute_cumulants(soap_block, 1)
@@ -419,7 +419,7 @@ class SpatialIVAC(FullMethodBase):
         cov_mu_t : np.ndarray, shape (n_species, n_features, n_features)
             Temporal covariance of SOAP descriptor means (fluctuations in time).
         """
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
         soap_block = self.descriptor.calculate(systems[:1])
         first_soap = soap_block
         first_soap_cum = self.descriptor.compute_cumulants(soap_block, 1)

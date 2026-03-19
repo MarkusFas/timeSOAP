@@ -71,7 +71,7 @@ class ScikitPCA(FullMethodBase):
 
         self.selected_atoms = selected_atoms
         self.descriptor.set_samples(selected_atoms)
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
 
         projected_per_type = []
         self.ridge = Ridge(alpha=1e-6)
@@ -89,7 +89,7 @@ class ScikitPCA(FullMethodBase):
     def predict_ridge(self, traj, selected_atoms):
         self.selected_atoms = selected_atoms
         self.descriptor.set_samples(selected_atoms)
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
        
         projected_per_type = []
 
@@ -131,7 +131,7 @@ class ScikitPCA(FullMethodBase):
         cov_mu_t : np.ndarray, shape (n_species, n_features, n_features)
             Temporal covariance of SOAP descriptor means (fluctuations in time).
         """
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
         soap_block = self.descriptor.calculate(systems[:1])
         first_soap = soap_block  
         self.atomsel_element = [[idx for idx, label in enumerate(self.descriptor.soap_block.samples.values.numpy()) if label[2] == atom_type] for atom_type in self.descriptor.centers]
@@ -214,7 +214,7 @@ class PCA(FullMethodBase):
         cov_mu_t : np.ndarray, shape (n_species, n_features, n_features)
             Temporal covariance of SOAP descriptor means (fluctuations in time).
         """
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
         #soap_block = self.descriptor.calculate(systems[:1])
         soap_block = self.descriptor.calculate(traj[:1]) #TODO change back
         first_soap = soap_block  
@@ -283,7 +283,7 @@ class PCA(FullMethodBase):
 
         self.selected_atoms = selected_atoms
         self.descriptor.set_samples(selected_atoms)
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
 
         projected_per_type = []
         
@@ -303,7 +303,7 @@ class PCA(FullMethodBase):
  
 
     def fit_ridge_nonincremental(self, traj):
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
         soap_block = self.descriptor.calculate(traj[:1], selected_samples=self.descriptor.selected_samples)
         print(soap_block.shape)
         first_soap = soap_block  
@@ -352,7 +352,7 @@ class PCA(FullMethodBase):
     def predict_ridge(self, traj, selected_atoms):
         self.selected_atoms = selected_atoms
         self.descriptor.set_samples(selected_atoms)
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
        
         projected_per_type = []
 
@@ -432,7 +432,7 @@ class PCAtest(FullMethodBase):
         cov_mu_t : np.ndarray, shape (n_species, n_features, n_features)
             Temporal covariance of SOAP descriptor means (fluctuations in time).
         """
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
         soap_block = self.descriptor.calculate(systems[:1])
         first_soap =  soap_block  
         self.atomsel_element = [[idx for idx, label in enumerate(self.descriptor.soap_block.samples.values.numpy()) if label[2] == atom_type] for atom_type in self.descriptor.centers]
@@ -525,7 +525,7 @@ class PCAfull(FullMethodBase):
 
         self.selected_atoms = selected_atoms
         self.descriptor.set_samples(selected_atoms)
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
 
         projected_per_type = []
 
@@ -551,8 +551,7 @@ class PCAfull(FullMethodBase):
         self.get_explained_variance(traj, selected_atoms)
         return projected_per_type  # shape: (#centers ,N_atoms, T, latent_dim)
 
-
-    def compute_(self, soap, scatter_mut, sum_mu_t, cov_t, nsmp, ntimesteps):   
+    def compute_(self, soap, scatter_mut, sum_mu_t, cov_t, nsmp, ntimesteps):  
         for atom_type_idx, atom_type in enumerate(self.atomsel_element):
             mu_t = soap[atom_type].mean(axis=0)
             scatter_mut[atom_type_idx] += np.einsum(
@@ -566,7 +565,6 @@ class PCAfull(FullMethodBase):
             cov_t[atom_type_idx] += np.einsum("ia,ib->ab", soap[atom_type] - mu_t, soap[atom_type] - mu_t)/len(atom_type) #sum over all same atoms (have already summed over all times before) 
             nsmp[atom_type_idx] += len(atom_type)
             ntimesteps[atom_type_idx] += 1
-
 
     def compute_COV(self, traj):
         """
@@ -594,10 +592,14 @@ class PCAfull(FullMethodBase):
         cov_mu_t : np.ndarray, shape (n_species, n_features, n_features)
             Temporal covariance of SOAP descriptor means (fluctuations in time).
         """
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
         soap_block = self.descriptor.calculate(systems[:1])
         first_soap = soap_block  
-        self.atomsel_element = [[idx for idx, label in enumerate(self.descriptor.soap_block.samples.values.numpy()) if label[2] == atom_type] for atom_type in self.descriptor.centers]
+        if self.descriptor.id[:4] == "SOAP":
+            self.atomsel_element = [[idx for idx, label in enumerate(self.descriptor.soap_block.samples.values) if label[2] == atom_type] for atom_type in self.descriptor.centers]
+        else:
+            self.atomsel_element = [[idx for idx in range(len(self.descriptor.selected_samples))] for atom_type in self.descriptor.centers]
+        
         if soap_block.shape[0] == 1:
             self.atomsel_element = [[0] for atom_type in self.descriptor.centers]
         buffer = np.zeros((first_soap.shape[0], self.interval, first_soap.shape[1]))
@@ -721,7 +723,7 @@ class SpatialPCA(FullMethodBase):
     
 
     def fit_ridge_nonincremental(self, traj):
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
         soap_block = self.descriptor.calculate(systems[:1], selected_samples=self.descriptor.selected_samples)
         first_soap = soap_block  
         first_soap = self.spatial_average_with_nl(systems[0], first_soap)
@@ -788,7 +790,7 @@ class SpatialPCA(FullMethodBase):
 
         self.selected_atoms = selected_atoms
         self.descriptor.set_samples(selected_atoms)
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
 
         projected_per_type = []
 
@@ -840,7 +842,7 @@ class SpatialPCA(FullMethodBase):
         cov_mu_t : np.ndarray, shape (n_species, n_features, n_features)
             Temporal covariance of SOAP descriptor means (fluctuations in time).
         """
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
         soap_block = self.descriptor.calculate(systems[:1])
         first_soap =  soap_block  
         self.atomsel_element = [[idx for idx, label in enumerate(self.descriptor.soap_block.samples.values.numpy()) if label[2] == atom_type] for atom_type in self.descriptor.centers]
@@ -1178,7 +1180,7 @@ class SpatialTempPCA(FullMethodBase):
         cov_mu_t : np.ndarray, shape (n_species, n_features, n_features)
             Temporal covariance of SOAP descriptor means (fluctuations in time).
         """
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
         soap_block = self.descriptor.calculate(systems[:1])
         first_soap =  soap_block  
         self.atomsel_element = [[idx for idx, label in enumerate(self.descriptor.soap_block.samples.values.numpy()) if label[2] == atom_type] for atom_type in self.descriptor.centers]
@@ -1446,7 +1448,7 @@ class CumulantPCA(FullMethodBase):
 
         self.selected_atoms = selected_atoms
         self.descriptor.set_samples(selected_atoms)
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
 
         projected_per_type = []
 
@@ -1467,7 +1469,7 @@ class CumulantPCA(FullMethodBase):
     def predict_ridge(self, traj, selected_atoms):
         self.selected_atoms = selected_atoms
         self.descriptor.set_samples(selected_atoms)
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
        
         projected_per_type = []
 
@@ -1519,7 +1521,7 @@ class CumulantPCA(FullMethodBase):
         cov_mu_t : np.ndarray, shape (n_species, n_features, n_features)
             Temporal covariance of SOAP descriptor means (fluctuations in time).
         """
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
         soap_block = self.descriptor.calculate(systems[:1])
         
         first_soap = self.descriptor.compute_cumulants(soap_block, self.n_cumulants)
@@ -1567,7 +1569,7 @@ class CumulantPCA(FullMethodBase):
 
 
     def fit_ridge_nonincremental(self, traj):
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
         soap_block = self.descriptor.calculate(systems[:1], selected_samples=self.descriptor.selected_samples)
         print(soap_block.shape)
         first_soap = self.descriptor.compute_cumulants(soap_block, self.n_cumulants)
@@ -1752,7 +1754,7 @@ class PCAnorm(FullMethodBase):
 
         self.selected_atoms = selected_atoms
         self.descriptor.set_samples(selected_atoms)
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
 
         projected_per_type = []
 
@@ -1771,7 +1773,7 @@ class PCAnorm(FullMethodBase):
 
    
     def fit_ridge_nonincremental(self, traj):
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
         soap_block = self.descriptor.calculate(systems[:1], selected_samples=self.descriptor.selected_samples)
         print(soap_block.shape)
         first_soap = soap_block  
@@ -1820,7 +1822,7 @@ class PCAnorm(FullMethodBase):
 
 
     def fit_ridge(self, traj):
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
         soap_block = self.descriptor.calculate(systems[:1])
         first_soap = soap_block  
         buffer = np.zeros((first_soap.shape[0], self.interval, first_soap.shape[1]))
@@ -1863,7 +1865,7 @@ class PCAnorm(FullMethodBase):
     def predict_ridge(self, traj, selected_atoms):
         self.selected_atoms = selected_atoms
         self.descriptor.set_samples(selected_atoms)
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
        
         projected_per_type = []
 
@@ -1906,7 +1908,7 @@ class PCAnorm(FullMethodBase):
         cov_mu_t : np.ndarray, shape (n_species, n_features, n_features)
             Temporal covariance of SOAP descriptor means (fluctuations in time).
         """
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
         soap_block = self.descriptor.calculate(systems[:1])
         first_soap =  soap_block  
         self.atomsel_element = [[idx for idx, label in enumerate(self.descriptor.soap_block.samples.values.numpy()) if label[2] == atom_type] for atom_type in self.descriptor.centers]
@@ -2086,7 +2088,7 @@ class SpatialPCA_deprecated(FullMethodBase):
         cov_mu_t : np.ndarray, shape (n_species, n_features, n_features)
             Temporal covariance of SOAP descriptor means (fluctuations in time).
         """
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
         soap_block = self.descriptor.calculate(systems[:1])
         first_soap =  soap_block  
         self.atomsel_element = [[idx for idx, label in enumerate(self.descriptor.soap_block.samples.values.numpy()) if label[2] == atom_type] for atom_type in self.descriptor.centers]
@@ -2223,7 +2225,7 @@ class PCA_time_norm(FullMethodBase):
 
         self.selected_atoms = selected_atoms
         self.descriptor.set_samples(selected_atoms)
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
 
         projected_per_type = []
 
@@ -2291,7 +2293,7 @@ class PCA_time_norm(FullMethodBase):
         cov_mu_t : np.ndarray, shape (n_species, n_features, n_features)
             Temporal covariance of SOAP descriptor means (fluctuations in time).
         """
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
         soap_block = self.descriptor.calculate(systems[:1])
         first_soap = soap_block  
         self.atomsel_element = [[idx for idx, label in enumerate(self.descriptor.soap_block.samples.values.numpy()) if label[2] == atom_type] for atom_type in self.descriptor.centers]

@@ -105,7 +105,7 @@ class DistinctPCA(FullMethodBase):
 
         self.selected_atoms = selected_atoms
         self.descriptor.set_samples(selected_atoms)
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
 
         projected_per_type = []
 
@@ -129,7 +129,7 @@ class DistinctPCA(FullMethodBase):
     def predict_ridge(self, traj, selected_atoms):
         self.selected_atoms = selected_atoms
         self.descriptor.set_samples(selected_atoms)
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
        
         projected_per_type = []
 
@@ -147,7 +147,7 @@ class DistinctPCA(FullMethodBase):
   
 
     def fit_ridge_nonincremental(self, traj):
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
         soap_block = self.descriptor.calculate(systems[:1], selected_samples=self.descriptor.selected_samples)
         print(soap_block.shape)
         first_soap = soap_block  
@@ -227,7 +227,7 @@ class DistinctPCA(FullMethodBase):
         cov_mu_t : np.ndarray, shape (n_species, n_features, n_features)
             Temporal covariance of SOAP descriptor means (fluctuations in time).
         """
-        systems = systems_to_torch(traj, dtype=torch.float64)
+        systems = systems_to_torch(traj, dtype=torch.float32)
         soap_block = self.descriptor.calculate(systems[:1])
         first_soap = soap_block  
         # TODO: only implemented for one center type, could extend if necessary
