@@ -15,11 +15,13 @@ import torch
 from metatomic.torch import systems_to_torch, ModelEvaluationOptions, ModelOutput, load_atomistic_model
 from metatensor.torch import Labels
 import datetime
+from vesin.metatomic import compute_requested_neighbors
 
-def split_train_test(trj,trj_test,kwargs, is_shared,randomseed=7):
+
+def split_train_test(trj, trj_test, kwargs, is_shared, randomseed=7):
     random.seed(randomseed)
     # create labels and directories for results
-    
+
     N_train = kwargs.get('train_selected_atoms')
     N_test = kwargs.get('test_selected_atoms')
     descriptor_centers=kwargs['SOAP_params']['centers']
@@ -53,19 +55,28 @@ def split_train_test(trj,trj_test,kwargs, is_shared,randomseed=7):
     # train our method by specifying the selected atoms
     return train_atoms, test_atoms
 
-def do_ridge_fit(method, trj, trj_predict, test_atoms):
+def do_ridge_fit(method, systems, systems_predict, test_atoms):
     print('Starting to fit the Ridge ...')
     
     #print('fit ridge 2')
-    trj_ridge = list(chain(*trj))
-    method.fit_ridge_nonincremental(trj_ridge)
+    systems_ridge = list(chain(*systems))
+    method.fit_ridge_nonincremental(systems_ridge)
     print('Finished the Ridge fit')
     #X_ridge = method.predict_ridge(trj[0], train_atoms)
     print('Starting Ridge prediction ...')
-    X_ridge = method.predict_ridge(trj_predict, test_atoms)
+    X_ridge = method.predict_ridge(systems_predict, test_atoms)
     X_ridge = [proj.transpose(1,0,2) for proj in X_ridge]
     print('Finished Ridge prediction')
     return X_ridge
+
+def get_nl(systems_list, method):
+    for systems in systems_list:
+        compute_requested_neighbors(
+            systems=systems, 
+            system_length_unit='angstrom',
+            model=method.descriptor.model,
+            model_length_unit='angstrom',
+            check_consistency=True)
 
 def run_simulation(trj, trj_test, methods_intervals, **kwargs):
     is_shared = False
@@ -83,22 +94,30 @@ def run_simulation(trj, trj_test, methods_intervals, **kwargs):
         for i, methods in tqdm(enumerate(methods_intervals), desc="looping through intervals"):
             for j, method in tqdm(enumerate(methods), desc="looping through methods"):
                 train_atoms, test_atoms = split_train_test(trj, trj_test, kwargs, is_shared, randomseed=7)
-                method.train(trj, train_atoms)
-        
+                train_systems = [systems_to_torch(run, dtype=torch.float64) for run in trj]
+                test_systems = [systems_to_torch(run, dtype=torch.float64) for run in trj_test]
+                
+                if method.descriptor.id == "PETMAD":
+                    get_nl(train_systems, method)
+                    print("Computed nl for training")
+                    get_nl(test_systems, method)
+                    print("Computed nl for testing")
+                
+                method.train(train_systems, train_atoms)
                 # for saving eigvecs, eigvals, mu etc for analysis
                 if kwargs['log']:
                     method.log_metrics()
          
                 # get predictions with the new representation
                 # for prediction we can use the concatenated trajectories
-         
                 trj_predict = list(chain(*trj_test))
+                systems_predict = list(chain(*test_systems))
                 if kwargs["ridge"]:
                     #method.fit_ridge(trj_predict)
-                    X_ridge=do_ridge_fit(method, trj, trj_predict, test_atoms)
+                    X_ridge=do_ridge_fit(method, train_systems, systems_predict, test_atoms)
                 
                 print('Starting to predict ...')
-                X = method.predict(trj_predict, test_atoms) ##centers N,T,P
+                X = method.predict(systems_predict, test_atoms) ##centers N,T,P
                 print('Finished the prediction')
                 X = [proj.transpose(1,0,2) for proj in X]#centers T,N,P
        
