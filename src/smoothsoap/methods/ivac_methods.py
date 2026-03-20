@@ -325,7 +325,7 @@ class IVAC(FullMethodBase):
         self.lag_step = lag_step
         super().__init__(descriptor, interval, lag='ivac', root=root, sigma=0, ridge_alpha=ridge_alpha, method=self.name, eps2factor=eps2factor)
 
-    def compute_COV(self, traj):
+    def compute_COV(self, systems):
         """
         Compute time-averaged SOAP covariance matrices for each atomic species.
 
@@ -351,7 +351,7 @@ class IVAC(FullMethodBase):
         cov_mu_t : np.ndarray, shape (n_species, n_features, n_features)
             Temporal covariance of SOAP descriptor means (fluctuations in time).
         """
-        systems = systems_to_torch(traj, dtype=torch.float32)
+
         soap_block = self.descriptor.calculate(systems[:1])
         first_soap = soap_block  
         self.atomsel_element = [[idx for idx, label in enumerate(self.descriptor.soap_block.samples.values.numpy()) if label[2] == atom_type] for atom_type in self.descriptor.centers]
@@ -759,7 +759,7 @@ class CumulantIVAC(FullMethodBase):
         super().__init__(descriptor, interval, lag='ivac', root=root, sigma=0, ridge_alpha=ridge_alpha, method=self.name)
 
 
-    def predict(self, traj, selected_atoms):
+    def predict(self, systems, selected_atoms):
         """
         Project new trajectory frames into the trained collective variable (CV) space.
 
@@ -780,7 +780,6 @@ class CumulantIVAC(FullMethodBase):
 
         self.selected_atoms = selected_atoms
         self.descriptor.set_samples(selected_atoms)
-        systems = systems_to_torch(traj, dtype=torch.float32)
 
         projected_per_type = []
 
@@ -798,7 +797,7 @@ class CumulantIVAC(FullMethodBase):
         return projected_per_type  # shape: (#centers ,N_atoms, T, latent_dim)
     
 
-    def compute_COV(self, traj):
+    def compute_COV(self, systems):
         """
         Compute time-averaged SOAP covariance matrices for each atomic species.
 
@@ -824,7 +823,6 @@ class CumulantIVAC(FullMethodBase):
         cov_mu_t : np.ndarray, shape (n_species, n_features, n_features)
             Temporal covariance of SOAP descriptor means (fluctuations in time).
         """
-        systems = systems_to_torch(traj, dtype=torch.float32)
         soap_block = self.descriptor.calculate(systems[:1])
         first_soap = self.descriptor.compute_cumulants(soap_block, self.n_cumulants)
         self.atomsel_element = [[0] for atom_type in self.descriptor.centers]
@@ -918,8 +916,7 @@ class CumulantIVAC(FullMethodBase):
         #return soap_mu, corr, [np.eye(c.shape[0]) for c in corr]
 
 
-    def fit_ridge_nonincremental(self, traj):
-        systems = systems_to_torch(traj, dtype=torch.float32)
+    def fit_ridge_nonincremental(self, systems):
         soap_block = self.descriptor.calculate(systems[:1], selected_samples=self.descriptor.selected_samples)
         print(soap_block.shape)
         first_soap = self.descriptor.compute_cumulants(soap_block, self.n_cumulants)
@@ -967,10 +964,9 @@ class CumulantIVAC(FullMethodBase):
             self.ridge[idx].fit(soap_values, avg_soaps_projs)
       
 
-    def predict_ridge(self, traj, selected_atoms):
+    def predict_ridge(self, systems, selected_atoms):
         self.selected_atoms = selected_atoms
         self.descriptor.set_samples(selected_atoms)
-        systems = systems_to_torch(traj, dtype=torch.float32)
        
         projected_per_type = []
 

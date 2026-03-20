@@ -51,7 +51,7 @@ class FullMethodBase(ABC):
     # ------------------------------------------------------------------
     # Shared methods
     # ------------------------------------------------------------------
-    def train(self, trajs, selected_atoms):
+    def train(self, trj_systems, selected_atoms):
         """
         Train the method using a molecular dynamics trajectory.
 
@@ -70,12 +70,12 @@ class FullMethodBase(ABC):
         traj_cov2 = []
         traj_N = []
         print('before compute cov')
-        for traj in trajs:
-            mean, cov1, cov2 = self.compute_COV(traj)
+        for systems in trj_systems:
+            mean, cov1, cov2 = self.compute_COV(systems)
             traj_means.append(mean)
             traj_cov1.append(cov1)
             traj_cov2.append(cov2)
-            traj_N.append(len(traj))
+            traj_N.append(len(systems))
         
         #combine trajectories:
         total_N = np.sum(traj_N)
@@ -108,7 +108,7 @@ class FullMethodBase(ABC):
             trafo.solve_GEV(self.mean[i], self.cov1[i], self.cov2[i])
 
 
-    def predict(self, traj, selected_atoms):
+    def predict(self, systems,  selected_atoms):
         """
         Project new trajectory frames into the trained collective variable (CV) space.
 
@@ -129,25 +129,23 @@ class FullMethodBase(ABC):
 
         self.selected_atoms = selected_atoms
         self.descriptor.set_samples(selected_atoms)
-        systems = systems_to_torch(traj, dtype=torch.float32)
 
         projected_per_type = []
 
         for trafo in self.transformations:
-            first_soap = self.descriptor.calculate([systems[0]])
+            first_soap = np.array(self.descriptor.calculate([systems[0]]))
             first_soap = trafo.project(first_soap)
             projected = np.zeros((len(systems), first_soap.shape[0], first_soap.shape[1]))
             for i, system in enumerate(systems):
-                descriptor = self.descriptor.calculate([system])
+                descriptor = np.array(self.descriptor.calculate([system]))
                 descriptor = trafo.project(descriptor)
                 projected[i] = descriptor
             projected_per_type.append(projected.transpose(1, 0, 2))
-        self.get_explained_variance(traj, selected_atoms)
+        self.get_explained_variance(systems, selected_atoms)
         return projected_per_type  # shape: (#centers ,N_atoms, T, latent_dim)
 
-    def fit_ridge_nonincremental(self, traj):
-        systems = systems_to_torch(traj, dtype=torch.float32)
-        soap_block = self.descriptor.calculate(systems[:1], selected_samples=self.descriptor.selected_samples)
+    def fit_ridge_nonincremental(self, systems):
+        soap_block = np.array(self.descriptor.calculate(systems[:1], selected_samples=self.descriptor.selected_samples))
         print(soap_block.shape)
         first_soap = soap_block  
         buffer = np.zeros((first_soap.shape[0], self.interval, first_soap.shape[1]))
@@ -165,7 +163,7 @@ class FullMethodBase(ABC):
             soap_values=np.zeros((first_soap.shape[0],len(systems)-self.interval, first_soap.shape[1]))
             avg_soaps_projs=np.zeros((first_soap.shape[0],len(systems)-self.interval, avg_soap_proj.shape[-1]))
             for fidx, system in tqdm(enumerate(systems), total=len(systems), desc="Fit Ridge"):
-                new_soap_values = self.descriptor.calculate([system], selected_samples=self.descriptor.selected_samples)
+                new_soap_values = np.array(self.descriptor.calculate([system], selected_samples=self.descriptor.selected_samples))
                 #TODO: make more efficient, need buffer?
                 if fidx >= self.interval:
                     roll_kernel = np.roll(kernel, fidx%self.interval)
@@ -198,7 +196,7 @@ class FullMethodBase(ABC):
 
     def fit_ridge(self, traj):
         systems = systems_to_torch(traj, dtype=torch.float32)
-        soap_block = self.descriptor.calculate(systems[:1])
+        soap_block = np.array(self.descriptor.calculate(systems[:1]))
         first_soap = soap_block  
         buffer = np.zeros((first_soap.shape[0], self.interval, first_soap.shape[1]))
         
@@ -216,7 +214,7 @@ class FullMethodBase(ABC):
                 print(epoch)
 
                 for fidx, system in tqdm(enumerate(systems), total=len(systems), desc="Fit Ridge"):
-                    new_soap_values = self.descriptor.calculate([system])
+                    new_soap_values = np.array(self.descriptor.calculate([system]))
                     if fidx >= self.interval:
                         roll_kernel = np.roll(kernel, fidx%self.interval)
                         # computes a contribution to the correlation function
@@ -236,22 +234,20 @@ class FullMethodBase(ABC):
                 # TODO:
                 self.ridge.fit(descriptor, descriptor_proj)"""
     
-    def predict_ridge(self, traj, selected_atoms):
+    def predict_ridge(self, systems, selected_atoms):
         self.selected_atoms = selected_atoms
         self.descriptor.set_samples(selected_atoms)
-        systems = systems_to_torch(traj, dtype=torch.float32)
-       
         projected_per_type = []
 
         for idx, trafo in enumerate(self.transformations):
             projected = []
             for system in systems:
-                descriptor = self.descriptor.calculate([system])
+                descriptor = np.array(self.descriptor.calculate([system]))
                 ridge_pred = self.ridge[idx].predict(descriptor)
                 projected.append(ridge_pred)
                
             projected_per_type.append(np.stack(projected, axis=0).transpose(1, 0, 2))
-        self.get_explained_variance_ridge(traj, selected_atoms)
+        self.get_explained_variance_ridge(systems, selected_atoms)
         return projected_per_type
         
 
@@ -272,7 +268,7 @@ class FullMethodBase(ABC):
             w = np.exp(-d**2 / (2*sigma**2))
             self.descriptor_spatial.set_samples(self, selected_atoms)
             feats = np.stack([
-                features[selected_atoms[jj]] if jj in selected_atoms else self.descriptor.calculate([system])
+                features[selected_atoms[jj]] if jj in selected_atoms else np.array(self.descriptor.calculate([system]))
                 for jj in j
             ])
 
@@ -282,7 +278,7 @@ class FullMethodBase(ABC):
 
         return averaged_features
 
-    def get_explained_variance(self, traj, selected_atoms):
+    def get_explained_variance(self, systems, selected_atoms):
         """
         Project new trajectory frames into the trained collective variable (CV) space.
 
@@ -303,7 +299,7 @@ class FullMethodBase(ABC):
 
         self.selected_atoms = selected_atoms
         self.descriptor.set_samples(selected_atoms)
-        systems = systems_to_torch(traj, dtype=torch.float32)
+        
         for i, trafo in enumerate(self.transformations):
             proj_sum = np.zeros(trafo.n_components)
             proj_scatter = np.zeros(trafo.n_components)
@@ -313,7 +309,7 @@ class FullMethodBase(ABC):
             n = 0
             n_proj = 0
             for system in systems:
-                descriptor = self.descriptor.calculate([system])
+                descriptor = np.array(self.descriptor.calculate([system]))
                 descriptor_proj = trafo.project(descriptor)
                 # for temporal only
                 descriptor = np.sum(descriptor, axis=0)
@@ -346,7 +342,7 @@ class FullMethodBase(ABC):
             print('Explained variance ratio: ', EVR)
 
 
-    def get_explained_variance_ridge(self, traj, selected_atoms):
+    def get_explained_variance_ridge(self, systems, selected_atoms):
         """
         Project new trajectory frames into the trained collective variable (CV) space.
 
@@ -367,7 +363,6 @@ class FullMethodBase(ABC):
 
         self.selected_atoms = selected_atoms
         self.descriptor.set_samples(selected_atoms)
-        systems = systems_to_torch(traj, dtype=torch.float32)
         for i, trafo in enumerate(self.transformations):
             proj_sum = np.zeros(trafo.n_components)
             proj_scatter = np.zeros(trafo.n_components)
@@ -377,7 +372,7 @@ class FullMethodBase(ABC):
             n = 0
             n_proj = 0
             for system in systems:
-                descriptor = self.descriptor.calculate([system])
+                descriptor = np.array(self.descriptor.calculate([system]))
                 descriptor_proj = self.ridge[i].predict(descriptor)
                 descriptor -= trafo.mu
                 # for temporal only

@@ -566,7 +566,7 @@ class PCAfull(FullMethodBase):
             nsmp[atom_type_idx] += len(atom_type)
             ntimesteps[atom_type_idx] += 1
 
-    def compute_COV(self, traj):
+    def compute_COV(self, systems):
         """
         Compute time-averaged SOAP covariance matrices for each atomic species.
 
@@ -592,20 +592,19 @@ class PCAfull(FullMethodBase):
         cov_mu_t : np.ndarray, shape (n_species, n_features, n_features)
             Temporal covariance of SOAP descriptor means (fluctuations in time).
         """
-        systems = systems_to_torch(traj, dtype=torch.float32)
+
         soap_block = self.descriptor.calculate(systems[:1])
         first_soap = soap_block  
         if self.descriptor.id[:4] == "SOAP":
             self.atomsel_element = [[idx for idx, label in enumerate(self.descriptor.soap_block.samples.values) if label[2] == atom_type] for atom_type in self.descriptor.centers]
         else:
             self.atomsel_element = [[idx for idx in range(len(self.descriptor.selected_samples))] for atom_type in self.descriptor.centers]
-        
         if soap_block.shape[0] == 1:
             self.atomsel_element = [[0] for atom_type in self.descriptor.centers]
         buffer = np.zeros((first_soap.shape[0], self.interval, first_soap.shape[1]))
         cov_t = np.zeros((len(self.atomsel_element), first_soap.shape[1], first_soap.shape[1],))
-        sum_mu_t = np.zeros((len(self.atomsel_element),first_soap.shape[1],))
-        scatter_mut = np.zeros((len(self.atomsel_element),first_soap.shape[1], first_soap.shape[1],))
+        sum_mu_t = np.zeros((len(self.atomsel_element), first_soap.shape[1],))
+        scatter_mut = np.zeros((len(self.atomsel_element), first_soap.shape[1], first_soap.shape[1],))
         nsmp = np.zeros(len(self.atomsel_element))
         delta=np.zeros(self.interval)
         delta[self.interval//2]=1
@@ -722,8 +721,7 @@ class SpatialPCA(FullMethodBase):
         self.label = self.label + f'cut_{self.spatial_cutoff}'
     
 
-    def fit_ridge_nonincremental(self, traj):
-        systems = systems_to_torch(traj, dtype=torch.float32)
+    def fit_ridge_nonincremental(self, systems):
         soap_block = self.descriptor.calculate(systems[:1], selected_samples=self.descriptor.selected_samples)
         first_soap = soap_block  
         first_soap = self.spatial_average_with_nl(systems[0], first_soap)
@@ -766,10 +764,7 @@ class SpatialPCA(FullMethodBase):
             self.ridge[idx].fit(soap_values, avg_soaps_projs)
 
 
-
-
-
-    def predict_avg(self, traj, selected_atoms):
+    def predict_avg(self, systems, selected_atoms):
         """
         Project new trajectory frames into the trained collective variable (CV) space.
 
@@ -790,7 +785,6 @@ class SpatialPCA(FullMethodBase):
 
         self.selected_atoms = selected_atoms
         self.descriptor.set_samples(selected_atoms)
-        systems = systems_to_torch(traj, dtype=torch.float32)
 
         projected_per_type = []
 
@@ -805,7 +799,7 @@ class SpatialPCA(FullMethodBase):
                 descriptor = trafo.project(descriptor)
                 projected[i] = descriptor
             projected_per_type.append(projected.transpose(1, 0, 2))
-        self.get_explained_variance(traj, selected_atoms)
+        self.get_explained_variance(systems, selected_atoms)
         return projected_per_type  # shape: (#centers ,N_atoms, T, latent_dim)
 
  
@@ -816,7 +810,7 @@ class SpatialPCA(FullMethodBase):
             nsmp[atom_type_idx] += len(atom_type)
             ntimesteps[atom_type_idx] += 1
 
-    def compute_COV(self, traj):
+    def compute_COV(self, systems):
         """
         Compute time-averaged SOAP covariance matrices for each atomic species.
 
@@ -842,7 +836,6 @@ class SpatialPCA(FullMethodBase):
         cov_mu_t : np.ndarray, shape (n_species, n_features, n_features)
             Temporal covariance of SOAP descriptor means (fluctuations in time).
         """
-        systems = systems_to_torch(traj, dtype=torch.float32)
         soap_block = self.descriptor.calculate(systems[:1])
         first_soap =  soap_block  
         self.atomsel_element = [[idx for idx, label in enumerate(self.descriptor.soap_block.samples.values.numpy()) if label[2] == atom_type] for atom_type in self.descriptor.centers]
