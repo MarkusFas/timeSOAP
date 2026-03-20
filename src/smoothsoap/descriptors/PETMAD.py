@@ -19,59 +19,65 @@ from scipy.stats import moment
 from vesin.metatomic import compute_requested_neighbors
 
 
-class PETMAD_descriptor():
-    """
-    This function has been replaced with model_soap 
-    """
+class PETMAD_descriptor(torch.nn.Module):
+
     def __init__(self, cutoff, max_angular, max_radial, centers, neighbors, selected_atoms=None):
+        super().__init__()
         self.centers = centers
         self.neighbors = neighbors
-        self.id = f"PETMAD"
-        self.model = load_atomistic_model('data/PET-MAD.pt')
-        self.nl_options = self.model.requested_neighbor_lists()[0]
-        self.selected_samples = None
+        self.id = "PETMAD"
+        loaded_model = load_atomistic_model('data/PET-MAD.pt')
+        self.model = loaded_model.module.to(torch.float64)
+        self.nl_options = loaded_model.requested_neighbor_lists()
+        self.selected_samples: Optional[Labels] = None
         #TODO default to all atoms in the trajectory
-        self.output = ModelOutput(
-            quantity='features', # mtt::aux::energy_last_layer_features
-            unit='',
-            per_atom=True,
-            explicit_gradients=[],
-        )
+        self.output = {
+            "features": ModelOutput(
+                quantity='features', # mtt::aux::energy_last_layer_features
+                unit='',
+                per_atom=True,
+                explicit_gradients=[],
+            )
+        }
         self.hypers={}
 
-    def calculate(self, systems, selected_samples=None):
-        systems = systems
+    def requested_neighbor_lists(self):
+        return self.nl_options
+
+    @torch.jit.ignore
+    def calculate(
+        self, 
+        systems: List[System],
+        selected_samples: Optional[Labels] = None,
+    ):
+        
         if selected_samples is None:
             selected_samples = self.selected_samples
-        self.options = ModelEvaluationOptions(
-            length_unit='angstrom',
-            outputs={
-                'mtt::aux::energy_last_layer_features': self.output, 
-            }, # check features, check 'mtt::aux::energy_last_layer_features'
+        # self.options = ModelEvaluationOptions(
+        #     length_unit='angstrom',
+        #     outputs={
+        #         'mtt::aux::energy_last_layer_features': self.output, 
+        #     }, # check features, check 'mtt::aux::energy_last_layer_features'
+        #     selected_atoms=selected_samples,
+        # )
+        #outputs={
+        #        'mtt::aux::energy_last_layer_features': self.output, 
+        #}, # check featur
+        
+        out = self.model(
+            systems,
+            outputs=self.output,
             selected_atoms=selected_samples,
         )
-        #systems = systems_to_torch(structures, dtype=torch.float32)
-        if len(systems[0].known_neighbor_lists())==0:
-            compute_requested_neighbors(
-                systems=systems,
-                system_length_unit='angstrom',
-                model=self.model,
-                model_length_unit='angstrom',
-            )
-
-        out = self.model(systems,
-            options=self.options,
-            check_consistency=True,
-        )
-        self.soap_block = out['mtt::aux::energy_last_layer_features'].block()
-        features = self.soap_block.values.numpy()
+        features = out['features'].block().values.to(torch.float64)
+        #features = torch.zeros((579,512), dtype=torch.float32)# "mtt::aux::energy_last_layer_features"
         return features
 
     def forward(
         self,
         systems: List[System],
         outputs: Dict[str, ModelOutput],
-        selected_atoms: Optional[Labels],
+        selected_atoms: Optional[Labels] = None,
     ) -> Dict[str, TensorMap]:
         if "features" not in outputs:
             return {}
@@ -86,19 +92,22 @@ class PETMAD_descriptor():
             samples = Labels(["system"], torch.zeros((0, 1), dtype=torch.int32))
             samples_per_atom = Labels(["system", "atom"], torch.zeros((0,2), dtype=torch.int32))
         else:
-            features = self.calculate(systems, selected_samples=selected_atoms, selected_keys=self.selected_keys)
-    
+            out = self.model(
+                systems,
+                outputs=self.output,
+                selected_atoms=selected_atoms,
+            )
+            features = out['features'].block().values.to(torch.float32)
+            #features = self.calculate(systems, selected_samples=selected_atoms)
             projected = torch.einsum('ij,jk->ik',(features - self.mu), self.projection_matrix[:,self.proj_dims])#, dtype=torch.float64)
-
-            samples_per_atom = Labels(["system", "atom"], torch.stack([torch.zeros_like(self.selected_samples), self.selected_samples], dim=1))
-                                      
+            samples_per_atom = Labels(["system", "atom"], torch.stack([torch.zeros_like(self.selected_samples.values), self.selected_samples.values], dim=1))
             samples = Labels(["system"], torch.zeros((1, 1), dtype=torch.int32))
             
             projected_mean = torch.mean(projected, dim=0)
             projected_mean = projected_mean.unsqueeze(0)
 
         block_per_atom = TensorBlock(
-            values=projected,
+            values=projected.to(torch.float32),
             samples=samples_per_atom,
             components=[],
             properties=Labels("soap_pca", torch.tensor(self.proj_dims, dtype=torch.int).unsqueeze(-1)),
@@ -109,7 +118,7 @@ class PETMAD_descriptor():
         )
 
         block = TensorBlock(
-            values=projected_mean,
+            values=projected_mean.to(torch.float32),
             samples=samples,
             components=[],
             properties=Labels("soap_pca", torch.tensor(self.proj_dims, dtype=torch.int).unsqueeze(-1)),
@@ -126,14 +135,6 @@ class PETMAD_descriptor():
             values=torch.tensor([[0, i] for i in selected_atoms], dtype=torch.int64),
         )
 
-        self.options = ModelEvaluationOptions(
-            length_unit='angstrom', 
-            outputs={
-                'mtt::aux::energy_last_layer_features': self.output, 
-            }, # check features, check 'mtt::aux::energy_last_layer_features'
-            selected_atoms=self.selected_samples,
-        )
-
     def set_atom_types(self, trj):
         types=[i.number for j in trj for w in j for i in w]
         self.atomic_types= sorted(set(types), key=types.index) #[torch.tensor([i for i in centers]+[j for j in neighbors if j not in centers ], dtype=torch.int32)]
@@ -142,13 +143,13 @@ class PETMAD_descriptor():
         self.proj_dims = torch.tensor(dims)
 
     def set_projection_mu(self, mu):
-        self.mu = torch.tensor(mu, dtype=torch.float64)
+        self.mu = torch.tensor(mu, dtype=torch.float32)
 
     def update_hypers(self, hypers): #hypers has to be dict
         self.hypers.update({key: str(val) for key, val in hypers.items()})
 
     def set_projection_matrix(self,matrix):
-        self.projection_matrix=torch.tensor(matrix.copy())
+        self.projection_matrix=torch.tensor(matrix.copy(), dtype=torch.float32)
 
     def save_model(self, path='.', name='soap_model'):
         capabilities = ModelCapabilities(
@@ -157,14 +158,14 @@ class PETMAD_descriptor():
             },
             interaction_range=10.0,
             supported_devices=["cpu", "cuda"],
-            length_unit="A",
+            length_unit="angstrom",
             atomic_types=self.atomic_types,
             dtype="float32",
         )
-        
+
         metadata = ModelMetadata(name="SOAP based CV", authors=['SmoothSOAP'], description='Hyperparameters in extra', extra=self.hypers)
         model = AtomisticModel(self, metadata, capabilities)
-        model.save("{}/{}.pt".format(path,name), collect_extensions=f"{path}/extensions")
+        model.save(f"{path}/{name}.pt", collect_extensions=f"{path}/extensions")
         print(f'model saved at {path}/{name}.pt')
 
 
