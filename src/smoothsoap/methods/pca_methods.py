@@ -504,7 +504,7 @@ class PCAfull(FullMethodBase):
         super().__init__(descriptor, interval, lag=0, root=root, sigma=0, ridge_alpha=ridge_alpha, method=self.name)
 
 
-    def predict_avg(self, traj, selected_atoms):
+    def predict_avg(self, systems, selected_atoms):
         """
         Project new trajectory frames into the trained collective variable (CV) space.
 
@@ -525,7 +525,6 @@ class PCAfull(FullMethodBase):
 
         self.selected_atoms = selected_atoms
         self.descriptor.set_samples(selected_atoms)
-        systems = systems_to_torch(traj, dtype=torch.float32)
 
         projected_per_type = []
 
@@ -548,7 +547,7 @@ class PCAfull(FullMethodBase):
                 descriptor = self.descriptor.calculate([system])
                 
             projected_per_type.append(projected.transpose(1, 0, 2))
-        self.get_explained_variance(traj, selected_atoms)
+        self.get_explained_variance(systems, selected_atoms)
         return projected_per_type  # shape: (#centers ,N_atoms, T, latent_dim)
 
     def compute_(self, soap, scatter_mut, sum_mu_t, cov_t, nsmp, ntimesteps):  

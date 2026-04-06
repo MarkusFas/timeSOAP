@@ -1,6 +1,6 @@
 import os
 import random
-
+import gc 
 import metatomic.torch as mta
 import numpy as np
 from tqdm import tqdm
@@ -57,10 +57,10 @@ def split_train_test(trj, trj_test, kwargs, is_shared, randomseed=7):
 
 def do_ridge_fit(method, systems, systems_predict, test_atoms):
     print('Starting to fit the Ridge ...')
-    
     #print('fit ridge 2')
     systems_ridge = list(chain(*systems))
     method.fit_ridge_nonincremental(systems_ridge)
+    del systems_ridge
     print('Finished the Ridge fit')
     #X_ridge = method.predict_ridge(trj[0], train_atoms)
     print('Starting Ridge prediction ...')
@@ -92,10 +92,11 @@ def run_simulation(trj, trj_test, methods_intervals, **kwargs):
 
     if kwargs['model_load']==None:
         for i, methods in tqdm(enumerate(methods_intervals), desc="looping through intervals"):
+            train_systems = [systems_to_torch(run, dtype=torch.float64) for run in trj]
+            test_systems = [systems_to_torch(run, dtype=torch.float64) for run in trj_test]
             for j, method in tqdm(enumerate(methods), desc="looping through methods"):
                 train_atoms, test_atoms = split_train_test(trj, trj_test, kwargs, is_shared, randomseed=7)
-                train_systems = [systems_to_torch(run, dtype=torch.float64) for run in trj]
-                test_systems = [systems_to_torch(run, dtype=torch.float64) for run in trj_test]
+                
                 
                 if method.descriptor.id == "PETMAD":
                     get_nl(train_systems, method)
@@ -170,12 +171,13 @@ def run_simulation(trj, trj_test, methods_intervals, **kwargs):
                             method.descriptor.set_projection_matrix(method.ridge[i].coef_.T)
                         else:
                             method.descriptor.set_projection_matrix(trans.eigvecs)
+                        
                         #for CV
                         method.descriptor.set_projection_dims(dims=kwargs['model_proj_dims'])
                         method.descriptor.set_projection_mu(mu=trans.mu)
                         method.descriptor.eval()   
                         method.descriptor.save_model(path=method.label, name='model_soap') 
-    
+                        
                         #for reloading
                         method.descriptor.set_projection_dims(dims=list(range(4))) # 4 is number of saved n_components for pca
                         method.descriptor.update_hypers({'model_proj_dims':np.arange(4)})
@@ -187,7 +189,7 @@ def run_simulation(trj, trj_test, methods_intervals, **kwargs):
                         if kwargs["ridge"]:
                             post_processing(X_ridge, trj_predict, test_atoms, method.name, method.label + f'_ridge', method.interval, **kwargs)
                         if kwargs["predict_avg"] and (method.name == "SpatialPCA" or method.name == "PCAfull"):
-                            X_fromavg = method.predict_avg(trj_predict, test_atoms) ##centers N,T,P
+                            X_fromavg = method.predict_avg(systems_predict, test_atoms) ##centers N,T,P
                             X_fromavg = [proj.transpose(1,0,2) for proj in X_fromavg]
                             print('Finished the prediction for averaged')
                             post_processing(X_fromavg, trj_predict, test_atoms, method.name, method.label + f'_fromavg', method.interval, **kwargs)
@@ -202,8 +204,13 @@ def run_simulation(trj, trj_test, methods_intervals, **kwargs):
                                 X_fromavg = [np.mean(x, axis=1)[:, np.newaxis, :] for x in X_fromavg]
                                 post_processing(X_fromavg, trj_predict, test_atoms, method.name, newlabel + f'_fromavg', method.interval, **kwargs)
 
-                savedX=X.copy()
-
+                #savedX=X.copy()
+                del X
+                if kwargs["ridge"]:
+                    del X_ridge
+                if kwargs["predict_avg"] and (method.name == "SpatialPCA" or method.name == "PCAfull"):
+                    del X_fromavg
+                gc.collect()
     else: # load_model=True
         print('LOADING OF MODELS HAS BEEN REQUESTED, MANY KEYWORDS IN THE INPUT WILL BE IGNORED')
         models = []  
