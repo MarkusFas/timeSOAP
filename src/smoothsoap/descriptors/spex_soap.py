@@ -445,10 +445,16 @@ class SPEX_CV(torch.nn.Module):
     @torch.jit.ignore
     def update_hypers(self, hypers):  # hypers has to be dict
         self.hypers.update({key: str(val) for key, val in hypers.items()})
-
+ 
     @torch.jit.ignore
     def set_projection_matrix(self, matrix):
-        self.projection_matrix = torch.tensor(matrix.copy())
+        # Assign into the existing buffer so it stays registered and follows
+        # ``self.to(device)``.
+        if isinstance(matrix, torch.Tensor):
+            mat_t = matrix.detach().clone()
+        else:
+            mat_t = torch.tensor(matrix.copy())
+        self.projection_matrix = mat_t
 
     @torch.jit.ignore
     def save_model(self, path='.', name='soap_model'):
@@ -458,7 +464,7 @@ class SPEX_CV(torch.nn.Module):
                 "features/per_atom": ModelOutput(per_atom=True),
             },
             interaction_range=10.0,
-            supported_devices=["cpu"],
+            supported_devices=["cuda", "cpu"],
             length_unit="A",
             atomic_types=self.atomic_types,
             dtype="float64",

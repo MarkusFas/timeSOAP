@@ -157,7 +157,7 @@ class PETMAD_descriptor(torch.nn.Module):
                 "features/per_atom": ModelOutput(per_atom=True),
             },
             interaction_range=10.0,
-            supported_devices=["cpu", "cuda"],
+            supported_devices=["cuda", "cpu"],
             length_unit="angstrom",
             atomic_types=self.atomic_types,
             dtype="float32",
