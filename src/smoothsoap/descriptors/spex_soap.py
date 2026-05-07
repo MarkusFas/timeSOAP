@@ -103,7 +103,7 @@ class SPEX_CV(torch.nn.Module):
                 torch.tensor(projection_matrix.copy()).T,
             )
         else:
-            self.projection_matrix = None
+            self.register_buffer("projection_matrix", None)
 
         self.register_buffer("mu", torch.zeros(1, dtype=torch.float64))
         self.hypers: Dict[str, str] = {}
