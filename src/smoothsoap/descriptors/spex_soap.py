@@ -349,6 +349,8 @@ class SPEX_CV(torch.nn.Module):
         outputs: Dict[str, ModelOutput],
         selected_atoms: Optional[Labels],
     ) -> Dict[str, TensorMap]:
+        
+        device = systems[0].positions.device
         if "features" not in outputs:
             return {}
 
@@ -361,16 +363,16 @@ class SPEX_CV(torch.nn.Module):
         if len(systems[0]) == 0:
             # PLUMED is trying to determine the size of the output
             projected = torch.zeros(
-                (0, len(self.proj_dims)), dtype=torch.float64,
+                (0, len(self.proj_dims)), dtype=torch.float64, device=device
             )
             projected_mean = torch.zeros(
-                (0, len(self.proj_dims)), dtype=torch.float64,
+                (0, len(self.proj_dims)), dtype=torch.float64, device=device
             )
             samples = Labels(
-                ["system"], torch.zeros((0, 1), dtype=torch.int32),
+                ["system"], torch.zeros((0, 1), dtype=torch.int32, device=device),
             )
             samples_per_atom = Labels(
-                ["system", "atom"], torch.zeros((0, 2), dtype=torch.int32),
+                ["system", "atom"], torch.zeros((0, 2), dtype=torch.int32, device=device),
             )
         else:
             ps, soap_samples = self._compute_soap(systems, selected_atoms)
@@ -384,11 +386,28 @@ class SPEX_CV(torch.nn.Module):
             # Drop "center_type" -> ("system","atom"), like SOAP_CV.forward.
             samples_per_atom = soap_samples.remove("center_type")
             samples = Labels(
-                ["system"], torch.zeros((1, 1), dtype=torch.int32),
+                ["system"], torch.zeros((1, 1), dtype=torch.int32, device=device),
             )
 
             projected_mean = torch.mean(projected, dim=0)
             projected_mean = projected_mean.unsqueeze(0)
+
+            device = systems[0].positions.device
+
+            # existing line stays the same
+            ps, soap_samples = self._compute_soap(systems, selected_atoms)
+
+            projected = torch.einsum(
+                'ij,jk->ik',
+                (ps - self.mu),
+                self.projection_matrix[:, self.proj_dims],
+            )
+
+            samples_per_atom = soap_samples.remove("center_type")
+            samples = Labels(
+                ["system"], torch.zeros((1, 1), dtype=torch.int32, device=device),  # add device
+            )
+            projected_mean = torch.mean(projected, dim=0).unsqueeze(0)
 
         block_per_atom = TensorBlock(
             values=projected,
