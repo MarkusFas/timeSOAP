@@ -415,7 +415,7 @@ class SPEX_CV(torch.nn.Module):
             components=[],
             properties=Labels(
                 "soap_pca",
-                torch.tensor(self.proj_dims, dtype=torch.int).unsqueeze(-1),
+                torch.tensor(self.proj_dims, dtype=torch.int).unsqueeze(-1), device=device
             ),
         )
         cv_per_atom = TensorMap(
@@ -429,7 +429,7 @@ class SPEX_CV(torch.nn.Module):
             components=[],
             properties=Labels(
                 "soap_pca",
-                torch.tensor(self.proj_dims, dtype=torch.int).unsqueeze(-1),
+                torch.tensor(self.proj_dims, dtype=torch.int).unsqueeze(-1), device=device
             ),
         )
         cv = TensorMap(
