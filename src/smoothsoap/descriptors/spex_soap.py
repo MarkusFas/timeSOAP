@@ -223,7 +223,7 @@ class SPEX_CV(torch.nn.Module):
 
         # --- featomic-shaped per-atom Labels ---
         n_centers = center_indices.shape[0]
-        sys_col = torch.zeros((n_centers, 1), dtype=torch.int32)
+        sys_col = torch.zeros((n_centers, 1), dtype=torch.int32, device=species.device)
         atom_col = center_indices.to(torch.int32).unsqueeze(-1)
         ctype_col = species[center_indices].to(torch.int32).unsqueeze(-1)
         samples_per_atom = Labels(
