@@ -146,6 +146,7 @@ class SPEX_CV(torch.nn.Module):
             "_ps_property_values",
             torch.tensor(prop_rows, dtype=torch.int32),
         )
+        self.proj_dims = [0]
 
     # ----------------------------------------------------------------------
     # metatomic NL contract: declare what NL the engine should provide.
@@ -392,8 +393,6 @@ class SPEX_CV(torch.nn.Module):
             projected_mean = torch.mean(projected, dim=0)
             projected_mean = projected_mean.unsqueeze(0)
 
-            device = systems[0].positions.device
-
             # existing line stays the same
             ps, soap_samples = self._compute_soap(systems, selected_atoms)
 
@@ -415,7 +414,7 @@ class SPEX_CV(torch.nn.Module):
             components=[],
             properties=Labels(
                 "soap_pca",
-                torch.tensor(self.proj_dims, dtype=torch.int).unsqueeze(-1), device=device
+                torch.tensor(self.proj_dims, dtype=torch.int, device=device).unsqueeze(-1)
             ),
         )
         cv_per_atom = TensorMap(
@@ -429,7 +428,7 @@ class SPEX_CV(torch.nn.Module):
             components=[],
             properties=Labels(
                 "soap_pca",
-                torch.tensor(self.proj_dims, dtype=torch.int).unsqueeze(-1), device=device
+                torch.tensor(self.proj_dims, dtype=torch.int, device=device).unsqueeze(-1)
             ),
         )
         cv = TensorMap(
