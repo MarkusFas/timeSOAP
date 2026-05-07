@@ -418,7 +418,7 @@ class SPEX_CV(torch.nn.Module):
             ),
         )
         cv_per_atom = TensorMap(
-            keys=Labels("_", torch.tensor([[0]])),
+            keys=Labels("_", torch.tensor([[0]], device=device)),
             blocks=[block_per_atom],
         )
 
@@ -432,7 +432,7 @@ class SPEX_CV(torch.nn.Module):
             ),
         )
         cv = TensorMap(
-            keys=Labels("_", torch.tensor([[0]])),
+            keys=Labels("_", torch.tensor([[0]], device=device)),
             blocks=[block],
         )
         return {"features": cv, "features/per_atom": cv_per_atom}
