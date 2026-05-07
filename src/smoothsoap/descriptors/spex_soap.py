@@ -105,6 +105,7 @@ class SPEX_CV(torch.nn.Module):
         else:
             self.projection_matrix = None
 
+        self.register_buffer("mu", torch.zeros(1, dtype=torch.float64))
         self.hypers: Dict[str, str] = {}
 
         # ------------------------------------------------------------------
@@ -438,23 +439,19 @@ class SPEX_CV(torch.nn.Module):
     def set_projection_dims(self, dims):
         self.proj_dims = dims
 
-    @torch.jit.ignore
     def set_projection_mu(self, mu):
-        self.mu = torch.tensor(mu, dtype=torch.float64)
+        self.register_buffer("mu", torch.tensor(mu, dtype=torch.float64))
 
     @torch.jit.ignore
     def update_hypers(self, hypers):  # hypers has to be dict
         self.hypers.update({key: str(val) for key, val in hypers.items()})
  
-    @torch.jit.ignore
     def set_projection_matrix(self, matrix):
-        # Assign into the existing buffer so it stays registered and follows
-        # ``self.to(device)``.
         if isinstance(matrix, torch.Tensor):
             mat_t = matrix.detach().clone()
         else:
             mat_t = torch.tensor(matrix.copy())
-        self.projection_matrix = mat_t
+        self.register_buffer("projection_matrix", mat_t)
 
     @torch.jit.ignore
     def save_model(self, path='.', name='soap_model'):
