@@ -107,12 +107,7 @@ class SPEX_CV(torch.nn.Module):
 
         self.register_buffer("mu", torch.zeros(1, dtype=torch.float64))
         self.hypers: Dict[str, str] = {}
-         # timing state (ignored by TorchScript via @torch.jit.ignore methods)
-        self._time_step: int = 0
-        self._time_log_every: int = 0   # 0 = disabled; set >0 to enable
-        self._time_log_file: str = "spex_timing.log"
-        self._time_fwd_ms: List[float] = []
-        self._time_bwd_ms: List[float] = []
+
         # ------------------------------------------------------------------
         # Static tables for the PS contraction (script-friendly inner loops)
         # ------------------------------------------------------------------
@@ -349,57 +344,6 @@ class SPEX_CV(torch.nn.Module):
         )
         system.add_neighbor_list(self.nl_options, nl_block)
 
-    @torch.jit.ignore
-    def enable_timing(self, log_every: int = 100, log_file: str = "spex_timing.log"):
-        """Call before running MD to log forward+backward timings every N steps."""
-        self._time_log_every = log_every
-        self._time_log_file = log_file
-        self._time_step = 0
-        self._time_fwd_ms = []
-        self._time_bwd_ms = []
-
-    @torch.jit.ignore
-    def _sync(self):
-        if torch.cuda.is_available() and next(self.parameters(), None) is not None:
-            dev = next(self.parameters()).device
-            if dev.type == "cuda":
-                torch.cuda.synchronize(dev)
-
-    @torch.jit.ignore
-    def _timed_forward(self, systems, selected_atoms):
-        """Forward with wall-clock timing; returns (ps, soap_samples)."""
-        self._sync()
-        t0 = time.perf_counter()
-        ps, soap_samples = self._compute_soap(systems, selected_atoms)
-        self._sync()
-        t1 = time.perf_counter()
-        self._time_fwd_ms.append((t1 - t0) * 1000)
-
-        # Register backward hook on ps to capture backward time
-        def _bwd_hook(grad):
-            self._sync()
-            t2 = time.perf_counter()
-            self._time_bwd_ms.append((t2 - t1) * 1000)
-        ps.register_hook(_bwd_hook)
-
-        return ps, soap_samples
-
-    @torch.jit.ignore
-    def _maybe_flush_timing(self):
-        n = self._time_log_every
-        if n <= 0 or len(self._time_fwd_ms) < n:
-            return
-        fwds = self._time_fwd_ms[-n:]
-        bwds = self._time_bwd_ms[-n:] if len(self._time_bwd_ms) >= n else []
-        fwd_mean = sum(fwds) / len(fwds)
-        bwd_mean = sum(bwds) / len(bwds) if bwds else float("nan")
-        step = self._time_step
-        line = (f"step={step}  fwd={fwd_mean:.3f}ms  bwd={bwd_mean:.3f}ms"
-                f"  total={fwd_mean+bwd_mean:.3f}ms\n")
-        with open(self._time_log_file, "a") as f:
-            f.write(line)
-        self._time_fwd_ms = []
-        self._time_bwd_ms = []
 
     def forward(
         self,
@@ -433,14 +377,7 @@ class SPEX_CV(torch.nn.Module):
                 ["system", "atom"], torch.zeros((0, 2), dtype=torch.int32, device=device),
             )
         else:
-            if self._time_log_every > 0:
-                ps, soap_samples = self._timed_forward(systems, selected_atoms)
-                self._time_step += 1
-                self._maybe_flush_timing()
-            else:
-                ps, soap_samples = self._compute_soap(systems, selected_atoms)
-
-            #ps, soap_samples = self._compute_soap(systems, selected_atoms)
+            ps, soap_samples = self._compute_soap(systems, selected_atoms)
 
             projected = torch.einsum(
                 'ij,jk->ik',
