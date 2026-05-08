@@ -176,6 +176,7 @@ def run_simulation(trj, trj_test, methods_intervals, **kwargs):
                         method.descriptor.set_projection_dims(dims=kwargs['model_proj_dims'])
                         method.descriptor.set_projection_mu(mu=trans.mu)
                         method.descriptor.eval()   
+                        method.descriptor.enable_timing(log_every=10, log_file=method.label + '_timing.log')
                         method.descriptor.save_model(path=method.label, name='model_soap') 
                         
                         #for reloading
