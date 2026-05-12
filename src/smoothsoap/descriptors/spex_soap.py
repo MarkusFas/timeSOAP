@@ -103,7 +103,7 @@ class SPEX_CV(torch.nn.Module):
                 torch.tensor(projection_matrix.copy()).T,
             )
         else:
-            self.projection_matrix = None
+            self.register_buffer("projection_matrix", None)
 
         self.register_buffer("mu", torch.zeros(1, dtype=torch.float64))
         self.hypers: Dict[str, str] = {}
@@ -146,6 +146,7 @@ class SPEX_CV(torch.nn.Module):
             "_ps_property_values",
             torch.tensor(prop_rows, dtype=torch.int32),
         )
+        self.proj_dims = [0]
 
     # ----------------------------------------------------------------------
     # metatomic NL contract: declare what NL the engine should provide.
@@ -223,7 +224,7 @@ class SPEX_CV(torch.nn.Module):
 
         # --- featomic-shaped per-atom Labels ---
         n_centers = center_indices.shape[0]
-        sys_col = torch.zeros((n_centers, 1), dtype=torch.int32)
+        sys_col = torch.zeros((n_centers, 1), dtype=torch.int32, device=species.device)
         atom_col = center_indices.to(torch.int32).unsqueeze(-1)
         ctype_col = species[center_indices].to(torch.int32).unsqueeze(-1)
         samples_per_atom = Labels(
@@ -343,12 +344,15 @@ class SPEX_CV(torch.nn.Module):
         )
         system.add_neighbor_list(self.nl_options, nl_block)
 
+
     def forward(
         self,
         systems: List[System],
         outputs: Dict[str, ModelOutput],
         selected_atoms: Optional[Labels],
     ) -> Dict[str, TensorMap]:
+        
+        device = systems[0].positions.device
         if "features" not in outputs:
             return {}
 
@@ -361,16 +365,16 @@ class SPEX_CV(torch.nn.Module):
         if len(systems[0]) == 0:
             # PLUMED is trying to determine the size of the output
             projected = torch.zeros(
-                (0, len(self.proj_dims)), dtype=torch.float64,
+                (0, len(self.proj_dims)), dtype=torch.float64, device=device
             )
             projected_mean = torch.zeros(
-                (0, len(self.proj_dims)), dtype=torch.float64,
+                (0, len(self.proj_dims)), dtype=torch.float64, device=device
             )
             samples = Labels(
-                ["system"], torch.zeros((0, 1), dtype=torch.int32),
+                ["system"], torch.zeros((0, 1), dtype=torch.int32, device=device),
             )
             samples_per_atom = Labels(
-                ["system", "atom"], torch.zeros((0, 2), dtype=torch.int32),
+                ["system", "atom"], torch.zeros((0, 2), dtype=torch.int32, device=device),
             )
         else:
             ps, soap_samples = self._compute_soap(systems, selected_atoms)
@@ -384,11 +388,26 @@ class SPEX_CV(torch.nn.Module):
             # Drop "center_type" -> ("system","atom"), like SOAP_CV.forward.
             samples_per_atom = soap_samples.remove("center_type")
             samples = Labels(
-                ["system"], torch.zeros((1, 1), dtype=torch.int32),
+                ["system"], torch.zeros((1, 1), dtype=torch.int32, device=device),
             )
 
             projected_mean = torch.mean(projected, dim=0)
             projected_mean = projected_mean.unsqueeze(0)
+
+            # existing line stays the same
+            ps, soap_samples = self._compute_soap(systems, selected_atoms)
+
+            projected = torch.einsum(
+                'ij,jk->ik',
+                (ps - self.mu),
+                self.projection_matrix[:, self.proj_dims],
+            )
+
+            samples_per_atom = soap_samples.remove("center_type")
+            samples = Labels(
+                ["system"], torch.zeros((1, 1), dtype=torch.int32, device=device),  # add device
+            )
+            projected_mean = torch.mean(projected, dim=0).unsqueeze(0)
 
         block_per_atom = TensorBlock(
             values=projected,
@@ -396,11 +415,11 @@ class SPEX_CV(torch.nn.Module):
             components=[],
             properties=Labels(
                 "soap_pca",
-                torch.tensor(self.proj_dims, dtype=torch.int).unsqueeze(-1),
+                torch.tensor(self.proj_dims, dtype=torch.int, device=device).unsqueeze(-1)
             ),
         )
         cv_per_atom = TensorMap(
-            keys=Labels("_", torch.tensor([[0]])),
+            keys=Labels("_", torch.tensor([[0]], device=device)),
             blocks=[block_per_atom],
         )
 
@@ -410,11 +429,11 @@ class SPEX_CV(torch.nn.Module):
             components=[],
             properties=Labels(
                 "soap_pca",
-                torch.tensor(self.proj_dims, dtype=torch.int).unsqueeze(-1),
+                torch.tensor(self.proj_dims, dtype=torch.int, device=device).unsqueeze(-1)
             ),
         )
         cv = TensorMap(
-            keys=Labels("_", torch.tensor([[0]])),
+            keys=Labels("_", torch.tensor([[0]], device=device)),
             blocks=[block],
         )
         return {"features": cv, "features/per_atom": cv_per_atom}
