@@ -46,11 +46,11 @@ class SOAP_CV(torch.nn.Module):
 
         self.id = f"SOAP_{cutoff}{max_angular}{max_radial}_{centers}"
         
-        if projection_matrix !=None:
-            self.register_buffer("projection_matrix", torch.tensor(trans_matrix.copy()).T)#[0].T)
+        if projection_matrix is not None:
+            self.register_buffer("projection_matrix", torch.tensor(projection_matrix.copy()).T)#[0].T)
         else:
             self.projection_matrix=None
-
+        
         self.hypers={}
 
     def calculate(self, systems, selected_samples=None):
