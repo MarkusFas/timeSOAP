@@ -924,7 +924,10 @@ class SpatialPCA(FullMethodBase):
             periodic=True,
             quantities="ijdD"
         )
-
+        i = i.cpu().numpy()
+        j = j.cpu().numpy()
+        d = d.cpu().numpy()
+        S = S.cpu().numpy()
         # filter pairs to only the centers you care about:
         mask = np.isin(i, self.selected_atoms)
         atom_types = system.types.numpy()
@@ -967,6 +970,27 @@ class SpatialPCA(FullMethodBase):
             averaged_features[idx] = h_i
 
         return averaged_features
+
+    def spatial_average_with_nl(self, system, features):
+        positions = system.positions
+        box = system.cell
+        i, j, d, _ = self.nlist.compute(points=positions, box=box, periodic=True, quantities="ijdD")
+
+        atom_types = system.types.numpy()
+        # keep only same-element pairs
+        same_type = atom_types[j] == atom_types[i]
+        i, j, d = i[same_type], j[same_type], d[same_type]
+
+        w = np.exp(-d**2 / (2 * self.sigma**2))   # (N_pairs,)
+
+        feats = np.copy(features).astype(float)    # start with self-contribution (weight=1)
+        weight_sum = np.ones(len(features))        # self weight = 1 for every atom
+
+        np.add.at(feats, i, w[:, None] * features[j])
+        np.add.at(weight_sum, i, w)
+
+        feats /= weight_sum[:, None]
+        return feats
 
     def spatial_average_with_nl(self, system, features):
         positions = system.positions  # (N,3) numpy array

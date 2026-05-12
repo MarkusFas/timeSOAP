@@ -166,6 +166,7 @@ class SpatialIVACnorm(FullMethodBase):
         self.spatial_cutoff = spatial_cutoff
         super().__init__(descriptor, interval, lag=0, root=root, sigma=0, ridge_alpha=ridge_alpha, method=self.name, eps2factor=eps2factor)
         self.label = self.label + f'cut_{self.spatial_cutoff}'
+        self.make_neighborlist(cutoff=self.spatial_cutoff)
 
     def make_neighborlist(self, cutoff):
         self.nlist = NeighborList(cutoff=cutoff, full_list=True) # TODO: debatable if full lsit or not
@@ -173,13 +174,16 @@ class SpatialIVACnorm(FullMethodBase):
     def spatial_correlate(self, system, sel_atoms):
         pos = system.positions[sel_atoms]
         cell = system.cell
-        self.make_neighborlist(cutoff=self.spatial_cutoff) # example cutoff
         i, j, S, d = self.nlist.compute(
             points=pos,
             box=cell, 
             periodic=True,
             quantities="ijSd"
         )
+        i = i.cpu().numpy()
+        j = j.cpu().numpy()
+        d = d.cpu().numpy()
+        S = S.cpu().numpy()
         sort_idx = np.lexsort((d, j, i))  # primary i, secondary j, tertiary d
 
         i_sorted = i[sort_idx]
