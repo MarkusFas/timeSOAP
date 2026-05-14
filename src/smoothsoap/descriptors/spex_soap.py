@@ -14,7 +14,7 @@ from metatomic.torch import (
     System,
     systems_to_torch,
 )
-
+from vesin.torch import NeighborList as _VesinNL
 from spex import SphericalExpansion
 
 
@@ -302,8 +302,6 @@ class SPEX_CV(torch.nn.Module):
         for opts in system.known_neighbor_lists():
             if opts == self.nl_options:
                 return
-
-        from vesin.torch import NeighborList as _VesinNL
 
         nl = _VesinNL(cutoff=self.cutoff, full_list=True)
         positions = system.positions

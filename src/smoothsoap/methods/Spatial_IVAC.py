@@ -207,7 +207,7 @@ class SpatialIVACnorm(FullMethodBase):
             sum_soaps[atom_type_idx] += soap[atom_type].sum(axis=0)
             cov_t[atom_type_idx] += np.einsum("ia,ib->ab", soap[atom_type], soap[atom_type]) #sum over all same atoms (have already summed over all times before) 
             a,b,S,d = self.spatial_correlate(system, atom_type) # return nl indexes of center, neighbor and dist
-            dist = 1/(4.0*np.pi*d.numpy()**2)
+            dist = 1/(4.0*np.pi*d**2)
             sum_soaps_dist[atom_type_idx] += np.sum(dist)
             sum_soaps_spat[atom_type_idx] += np.einsum('m,mk->k', dist, soap[a,:] + soap[b,:]) / 2  # weighted mean over all pairs
             cov_t_cum[atom_type_idx] += np.einsum("n, ni,nj->ij", dist, soap[a,:], soap[b,:]) #sum over all same atoms (have already summed over all times before) 
