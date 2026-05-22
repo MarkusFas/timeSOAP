@@ -86,7 +86,7 @@ class SPEX_CV(torch.nn.Module):
         self.calculator = SphericalExpansion(
             cutoff=self.cutoff,
             max_angular=self.max_angular,
-            radial={"LaplacianEigenstates":
+            radial={"LaplacianEigenstates": #TODO try Chebyshev  
                     {"max_radial": self.max_radial, "trim": True}},
             angular="SphericalHarmonics",
             species={"Orthogonal": {"species": self.neighbors}},
@@ -258,10 +258,10 @@ class SPEX_CV(torch.nn.Module):
                 ps_blocks.append((ps_l * norm).reshape(c.shape[0], -1))
         return torch.cat(ps_blocks, dim=-1)
 
-    # ----------------------------------------------------------------------
-    # Public API (matches SOAP_CV).
-    # ``calculate`` and the setters use Python-only / vesin / ase code; we
-    # mark them ``@torch.jit.ignore`` so they don't have to be scriptable.
+        # ----------------------------------------------------------------------
+        # Public API (matches SOAP_CV).
+        # ``calculate`` and the setters use Python-only / vesin / ase code; we
+        # mark them ``@torch.jit.ignore`` so they don't have to be scriptable.
     # ----------------------------------------------------------------------
     @torch.jit.ignore
     def calculate(self, systems, selected_samples=None):

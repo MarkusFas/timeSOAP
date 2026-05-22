@@ -243,19 +243,18 @@ class SpatialIVACnorm(FullMethodBase):
         """
         soap_block = self.descriptor.calculate(systems[:1])
         first_soap = soap_block
-        first_soap_cum = self.descriptor.compute_cumulants(soap_block, 1)
 
         self.atomsel_element = [[idx for idx, label in enumerate(self.descriptor.soap_block.samples.values.numpy()) if label[2] == atom_type] for atom_type in self.descriptor.centers]
         if soap_block.shape[0] == 1:
             self.atomsel_element = [[0] for atom_type in self.descriptor.centers]
 
         buffer = np.zeros((first_soap.shape[0], self.interval, first_soap.shape[1]))
-        buffer_cum = np.zeros((first_soap.shape[0], self.interval, first_soap_cum.shape[1]))
+        buffer_cum = np.zeros((first_soap.shape[0], self.interval, first_soap.shape[1]))
         cov_t = np.zeros((len(self.atomsel_element), first_soap.shape[1], first_soap.shape[1],))
-        cov_t_cum = np.zeros((len(self.atomsel_element), first_soap_cum.shape[1], first_soap_cum.shape[1],))
+        cov_t_cum = np.zeros((len(self.atomsel_element), first_soap.shape[1], first_soap.shape[1],))
         sum_soaps = np.zeros((len(self.atomsel_element),first_soap.shape[1],))
-        sum_soaps_spat = np.zeros((len(self.atomsel_element),first_soap_cum.shape[1],))
-        sum_soaps_dist = np.zeros((len(self.atomsel_element),first_soap_cum.shape[1],))
+        sum_soaps_spat = np.zeros((len(self.atomsel_element),first_soap.shape[1],))
+        sum_soaps_dist = np.zeros((len(self.atomsel_element),first_soap.shape[1],))
         nsmp = np.zeros(len(self.atomsel_element))
         delta=np.zeros(self.interval)
         delta[self.interval//2]=1

@@ -164,54 +164,6 @@ class SOAP_CV(torch.nn.Module):
         print(f'model saved at {path}/{name}.pt')
 
 
-    def compute_cumulants(self, X, n_cumulants):
-        """
-        Compute cumulants for each feature and concatenate them horizontally.
-        
-        Parameters
-        ----------
-        X : np.ndarray, shape (N, P)
-            Data matrix with N samples and P features.
-        n_cumulants : int
-            Number of cumulants to compute per feature.
-        
-        Returns
-        -------
-        X_cumulant : np.ndarray, shape (N, P * n_cumulants)
-            New feature matrix where cumulants of each original feature 
-            are concatenated along the feature axis.
-        """
-        X = np.asarray(X)
-        N, P = X.shape
-        
-        cumulant_matrix = []
-        for j in range(P):
-            x = X[:, j]
-            m = np.mean(x)
-            centered = x - m
-
-            # Compute central moments up to n_cumulants
-            mu = np.array([moment(centered, moment=i) for i in range(1, n_cumulants + 1)])
-            c = np.zeros(n_cumulants)
-            
-            # First cumulants (mean, variance, skewness, kurtosis, ...)
-            c[0] = m
-            if n_cumulants > 1:
-                c[1] = mu[1]                 # variance
-            if n_cumulants > 2:
-                c[2] = mu[2]                 # 3rd central moment
-            if n_cumulants > 3:
-                c[3] = mu[3] - 3 * mu[1]**2  # 4th cumulant (kurtosis-related)
-            # higher orders could follow recursion, but are rarely stable
-            if n_cumulants > 4:
-                c[4] = mu[4] - 10 * mu[1] * mu[2]
-            # Broadcast cumulant values to N samples
-            cumulant_matrix.append(np.tile(c, (N, 1)))
-        
-        # Concatenate all cumulant blocks for each feature
-        X_cumulant = np.hstack(cumulant_matrix)
-        return X_cumulant
-
 
 class CumulantSOAP_CV(torch.nn.Module):
     def __init__(self, cutoff, max_angular, max_radial, centers, neighbors, n_cumulants, projection_matrix=None):
