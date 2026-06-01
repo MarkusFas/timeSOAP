@@ -975,7 +975,9 @@ class SpatialPCA(FullMethodBase):
         positions = system.positions
         box = system.cell
         i, j, d, _ = self.nlist.compute(points=positions, box=box, periodic=True, quantities="ijdD")
-
+        i = i.cpu().numpy()
+        j = j.cpu().numpy()
+        d = d.cpu().numpy()
         atom_types = system.types.numpy()
         # keep only same-element pairs
         same_type = atom_types[j] == atom_types[i]
