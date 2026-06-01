@@ -17,6 +17,8 @@ from featomic.torch import SoapPowerSpectrum
 import argparse
 from pathlib import Path
 from torch.profiler import record_function
+import spex
+import sphericart.torch
 
 
 class Wrapper(torch.nn.Module):
@@ -44,10 +46,9 @@ class Wrapper(torch.nn.Module):
         #self.cached_features: Optional[Dict[str, TensorMap]] = {"features": cv}
     
     def pre_selected(
-            self, 
+            self,
             systems: List[System],
-            selected_atoms: Optional[Labels],
-            mask: torch.Tensor,
+            selected_atoms: Optional[Labels]
     ) -> Labels:
         if selected_atoms is None:
             pos = systems[0].positions
@@ -59,7 +60,7 @@ class Wrapper(torch.nn.Module):
                     values=torch.tensor([[0, int(i)] for i in [0]]),
                 )
                 return newselected_atoms
-                  
+
             newselected_atoms = Labels(
                 names=["system", "atom"],
                 values=torch.tensor([[0, int(i)] for i in indices[mask]]),
@@ -68,7 +69,7 @@ class Wrapper(torch.nn.Module):
             pos = systems[0].positions[selected_atoms.values[:,1]]
             mask = (pos[:, 2] > self.zmin) & (pos[:, 2] < self.zmax)
             newselected_atoms = Labels(
-                names=["system", "atom"],
+                names=selected_atoms.names,
                 values=selected_atoms.values[mask],
             )
         return newselected_atoms
@@ -94,8 +95,12 @@ class Wrapper(torch.nn.Module):
             pbc=pbc,
             )
         ]
-        
-        newselected_atoms = self.pre_selected(systems, selected_atoms, mask)
+        if selected_atoms is not None:
+            selected_atoms = Labels(
+                names=["system", "atom"],
+                values=selected_atoms.values[mask],
+            )
+        newselected_atoms = self.pre_selected(systems, selected_atoms)
         features = self.model(systems, outputs, newselected_atoms)
         return features
 
