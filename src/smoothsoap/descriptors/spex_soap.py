@@ -219,6 +219,7 @@ class SPEX_CV(torch.nn.Module):
         R_ij = R_ij + eps
 
         # --- Spherical expansion + power spectrum ---
+        species = species.to(torch.int64)
         expansion = self.calculator(R_ij, i_idx, j_idx, species)
         ps = self._compute_ps(expansion, center_mask)
 
