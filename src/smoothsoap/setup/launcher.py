@@ -1,4 +1,5 @@
 # src/launcher/run_system.py
+
 from importlib.resources import files
 from pathlib import Path
 import argparse
@@ -71,7 +72,7 @@ def main():
 
     if input_file is None:
         systems = ['batio3']#['smallcell_interface_350', 'smallcell_interface_350', 'smallcell_interface_350', 'smallcell_interface_350', 'smallcell_interface_350'] #['iron'] 
-        runfiles = ['allfour']#['test_interval_lf0', 'test_interval_lf1', 'test_interval_lf2', 'test_interval_lf3', 'test_interval_lf4'] #['run'] 
+        runfiles = ['separateallfour']#['test_interval_lf0', 'test_interval_lf1', 'test_interval_lf2', 'test_interval_lf3', 'test_interval_lf4'] #['run'] 
 
         yaml_paths = []
         for system, runfile in zip(systems, runfiles):

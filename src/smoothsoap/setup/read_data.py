@@ -1,12 +1,29 @@
+import ase
 import ase.io
 from ase.visualize.plot import plot_atoms
 import matplotlib.pyplot as plt
 import numpy as np
 import random
+from io import StringIO
 import pathlib
 
 def read_trj(file, index=':'):
-    trj = ase.io.read(file, index=index)
+    #print(f"Reading trajectory from {file} with index {index}")
+    if file[-3:] == "pdb":
+        with open(file) as f:
+            lines = []
+            for line in f:
+                if line.startswith(('ATOM', 'HETATM')) and line[12:16].strip() == 'MW':
+                    # remap to X (dummy), preserve all columns
+                    line = line[:12] + '  X ' + line[16:76].ljust(60) + ' X\n'
+                lines.append(line)
+        filtered = ''.join(lines)
+        trj = ase.io.read(StringIO(filtered), format='proteindatabank', index=index)
+        if "X" in trj[0].get_chemical_symbols():
+            for structure in trj:
+                structure = structure[structure.get_chemical_symbols() != "W"]
+    else:
+        trj = ase.io.read(file, index=index)
     print(f'Read trajectory with {len(trj)} frames from {file}')
     for structure in trj:
         structure.wrap()
@@ -23,6 +40,8 @@ def read_trj(file, index=':'):
     #plt.close()
     #ids_atoms = [atom.index for atom in trj[0] if atom.symbol == 'Te']
     #ids_atoms = [atom.index for atom in trj[0]]
+    print(trj[0].get_chemical_symbols())
+    
     return trj
 
 

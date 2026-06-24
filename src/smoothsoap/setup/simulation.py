@@ -90,6 +90,10 @@ def run_simulation(trj, trj_test, methods_intervals, **kwargs):
     if not isinstance(trj_test[0], list):
         trj_test = [trj_test]
 
+    if kwargs['shuffle']:
+        for t in trj:
+            random.shuffle(t, randomseed=7)
+
     if kwargs['model_load']==None:
         for i, methods in tqdm(enumerate(methods_intervals), desc="looping through intervals"):
             train_systems = [systems_to_torch(run, dtype=torch.float64) for run in trj]
@@ -185,24 +189,24 @@ def run_simulation(trj, trj_test, methods_intervals, **kwargs):
                         method.descriptor.eval()
                         method.descriptor.save_model(path=method.label, name='model_soap_alldim')
     
-                        post_processing(X, trj_predict, test_atoms, method.name, method.label, method.interval, **kwargs)
-                        if kwargs["ridge"]:
-                            post_processing(X_ridge, trj_predict, test_atoms, method.name, method.label + f'_ridge', method.interval, **kwargs)
-                        if kwargs["predict_avg"] and (method.name == "SpatialPCA" or method.name == "PCAfull"):
-                            X_fromavg = method.predict_avg(systems_predict, test_atoms) ##centers N,T,P
-                            X_fromavg = [proj.transpose(1,0,2) for proj in X_fromavg]
-                            print('Finished the prediction for averaged')
-                            post_processing(X_fromavg, trj_predict, test_atoms, method.name, method.label + f'_fromavg', method.interval, **kwargs)
-                        if kwargs["output_per_structure"]:
-                            X = [np.mean(x, axis=1)[:, np.newaxis, :] for x in X]
-                            newlabel = method.label + f"_per_structure"
-                            post_processing(X, trj_predict, test_atoms, method.name, newlabel, method.interval, **kwargs)
-                            if kwargs["ridge"]:
-                                X_ridge = [np.mean(x, axis=1)[:, np.newaxis, :] for x in X_ridge]
-                                post_processing(X_ridge, trj_predict, test_atoms, method.name, newlabel+ f'_ridge', method.interval, **kwargs)
-                            if kwargs["predict_avg"] and (method.name == "SpatialPCA" or method.name == "PCAfull"):
-                                X_fromavg = [np.mean(x, axis=1)[:, np.newaxis, :] for x in X_fromavg]
-                                post_processing(X_fromavg, trj_predict, test_atoms, method.name, newlabel + f'_fromavg', method.interval, **kwargs)
+                post_processing(X, trj_predict, test_atoms, method.name, method.label, method.interval, **kwargs)
+                if kwargs["ridge"]:
+                    post_processing(X_ridge, trj_predict, test_atoms, method.name, method.label + f'_ridge', method.interval, **kwargs)
+                if kwargs["predict_avg"] and (method.name == "SpatialPCA" or method.name == "PCAfull"):
+                    X_fromavg = method.predict_avg(systems_predict, test_atoms) ##centers N,T,P
+                    X_fromavg = [proj.transpose(1,0,2) for proj in X_fromavg]
+                    print('Finished the prediction for averaged')
+                    post_processing(X_fromavg, trj_predict, test_atoms, method.name, method.label + f'_fromavg', method.interval, **kwargs)
+                if kwargs["output_per_structure"]:
+                    X = [np.mean(x, axis=1)[:, np.newaxis, :] for x in X]
+                    newlabel = method.label + f"_per_structure"
+                    post_processing(X, trj_predict, test_atoms, method.name, newlabel, method.interval, **kwargs)
+                    if kwargs["ridge"]:
+                        X_ridge = [np.mean(x, axis=1)[:, np.newaxis, :] for x in X_ridge]
+                        post_processing(X_ridge, trj_predict, test_atoms, method.name, newlabel+ f'_ridge', method.interval, **kwargs)
+                    if kwargs["predict_avg"] and (method.name == "SpatialPCA" or method.name == "PCAfull"):
+                        X_fromavg = [np.mean(x, axis=1)[:, np.newaxis, :] for x in X_fromavg]
+                        post_processing(X_fromavg, trj_predict, test_atoms, method.name, newlabel + f'_fromavg', method.interval, **kwargs)
 
                 #savedX=X.copy()
                 del X
